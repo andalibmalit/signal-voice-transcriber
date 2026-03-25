@@ -26,35 +26,30 @@ def split_message(text: str, max_length: int = MAX_MESSAGE_LENGTH) -> list[str]:
 
     current = ""
     for para in paragraphs:
-        # Check if adding this paragraph (with separator) fits
-        candidate = f"{current}\n\n{para}" if current else para
-        if len(candidate) <= max_length:
-            current = candidate
+        needed = len(current) + 2 + len(para) if current else len(para)
+        if needed <= max_length:
+            current = f"{current}\n\n{para}" if current else para
             continue
 
-        # Flush current chunk if non-empty
         if current:
             chunks.append(current)
             current = ""
 
-        # If the paragraph itself fits, start a new chunk with it
         if len(para) <= max_length:
             current = para
             continue
 
-        # Paragraph too long — split by words
         words = para.split(" ")
         for word in words:
-            candidate = f"{current} {word}" if current else word
-            if len(candidate) <= max_length:
-                current = candidate
+            needed = len(current) + 1 + len(word) if current else len(word)
+            if needed <= max_length:
+                current = f"{current} {word}" if current else word
                 continue
 
             if current:
                 chunks.append(current)
                 current = ""
 
-            # Single word exceeds max_length — hard split
             while len(word) > max_length:
                 chunks.append(word[:max_length])
                 word = word[max_length:]

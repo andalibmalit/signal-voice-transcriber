@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Module-level reference so _handle_message can access it
 _config: Config | None = None
 _tasks: set[asyncio.Task] = set()
-_seen: OrderedDict[str, None] = OrderedDict()
+_seen: OrderedDict[tuple[str, str], None] = OrderedDict()
 _SEEN_MAX = 1000
 
 
@@ -96,9 +96,9 @@ def _handle_message(raw: str) -> None:
     timestamp = envelope.get("timestamp", "")
 
     # Deduplicate (WebSocket reconnect can replay messages)
-    dedup_key = f"{source}_{timestamp}"
+    dedup_key = (source, str(timestamp))
     if dedup_key in _seen:
-        logger.debug("Duplicate message %s, skipping", dedup_key)
+        logger.debug("Duplicate message %s_%s, skipping", source, timestamp)
         return
     _seen[dedup_key] = None
     if len(_seen) > _SEEN_MAX:
