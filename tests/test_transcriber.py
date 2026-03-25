@@ -1,5 +1,4 @@
 import asyncio
-import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
 
@@ -21,7 +20,7 @@ def test_transcribe_calls_whisper(config):
     mock_client = MagicMock()
     mock_client.audio.transcriptions.create.return_value = "Hello world"
 
-    with patch("signal_transcriber.transcriber._get_client", return_value=mock_client), \
+    with patch("signal_transcriber.transcriber.get_openai_client", return_value=mock_client), \
          patch("builtins.open", mock_open(read_data=b"audio data")):
         result = asyncio.run(transcribe(Path("/tmp/test.m4a"), config))
 
@@ -35,7 +34,7 @@ def test_transcribe_converts_non_standard_format(config):
     mock_client = MagicMock()
     mock_client.audio.transcriptions.create.return_value = "Transcribed"
 
-    with patch("signal_transcriber.transcriber._get_client", return_value=mock_client), \
+    with patch("signal_transcriber.transcriber.get_openai_client", return_value=mock_client), \
          patch("signal_transcriber.transcriber._convert_to_m4a", return_value=Path("/tmp/converted.m4a")) as mock_convert, \
          patch("builtins.open", mock_open(read_data=b"audio")), \
          patch.object(Path, "exists", return_value=True), \

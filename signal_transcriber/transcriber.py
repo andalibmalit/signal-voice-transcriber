@@ -10,15 +10,15 @@ from .utils import make_temp_path
 
 logger = logging.getLogger(__name__)
 
-_whisper_client: OpenAI | None = None
+_openai_client: OpenAI | None = None
 
 
-def _get_client(api_key: str) -> OpenAI:
+def get_openai_client(api_key: str) -> OpenAI:
     """Return a cached OpenAI client, creating one if needed."""
-    global _whisper_client
-    if _whisper_client is None:
-        _whisper_client = OpenAI(api_key=api_key)
-    return _whisper_client
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
 
 
 def _convert_to_m4a(audio_path: Path) -> Path:
@@ -46,7 +46,7 @@ async def transcribe(audio_path: Path, config: Config) -> str:
         else:
             whisper_input = audio_path
 
-        client = _get_client(config.openai_api_key)
+        client = get_openai_client(config.openai_api_key)
 
         def _call_whisper() -> str:
             with open(whisper_input, "rb") as f:

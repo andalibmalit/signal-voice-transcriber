@@ -43,6 +43,3 @@ class Config:
             if n.strip()
         ]
     )
-    cleanup_interval_hours: int = field(
-        default_factory=lambda: int(os.getenv("CLEANUP_INTERVAL_HOURS", "24"))
-    )

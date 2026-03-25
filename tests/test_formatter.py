@@ -10,7 +10,7 @@ def test_format_calls_gpt(config):
         choices=[MagicMock(message=MagicMock(content="Formatted text."))]
     )
 
-    with patch("signal_transcriber.formatter._get_client", return_value=mock_client):
+    with patch("signal_transcriber.formatter.get_openai_client", return_value=mock_client):
         result = asyncio.run(format_transcript("raw text", config))
 
     assert result == "Formatted text."
@@ -24,7 +24,7 @@ def test_format_fallback_on_error(config):
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = RuntimeError("API down")
 
-    with patch("signal_transcriber.formatter._get_client", return_value=mock_client):
+    with patch("signal_transcriber.formatter.get_openai_client", return_value=mock_client):
         result = asyncio.run(format_transcript("raw text", config))
 
     assert result == "raw text"

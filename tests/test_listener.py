@@ -1,7 +1,6 @@
 import json
 from unittest.mock import patch, AsyncMock
 
-from signal_transcriber.config import Config
 from signal_transcriber.listener import _should_transcribe, _handle_message
 
 

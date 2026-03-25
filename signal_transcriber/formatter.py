@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from .config import Config
-from .transcriber import _get_client
+from .transcriber import get_openai_client
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ async def format_transcript(raw_text: str, config: Config) -> str:
     loop = asyncio.get_running_loop()
 
     try:
-        client = _get_client(config.openai_api_key)
+        client = get_openai_client(config.openai_api_key)
 
         def _call_gpt() -> str:
             result = client.chat.completions.create(
