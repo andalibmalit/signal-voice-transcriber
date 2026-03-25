@@ -10,7 +10,7 @@ from .config import Config
 from .formatter import format_transcript
 from .signal_client import download_attachment, send_reply
 from .transcriber import transcribe
-from .utils import is_voice_message
+from .utils import is_voice_message, split_message
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +175,10 @@ async def _process_voice_message(
             transcript = await format_transcript(transcript, config)
 
         reply_text = f"Transcription:\n\n{transcript}"
-        await send_reply(config, recipient, reply_text, quote_timestamp, quote_author)
+        chunks = split_message(reply_text)
+        await send_reply(config, recipient, chunks[0], quote_timestamp, quote_author)
+        for chunk in chunks[1:]:
+            await send_reply(config, recipient, chunk, 0, quote_author)
 
     except Exception:
         logger.exception("Failed to process voice message %s", attachment_id)
