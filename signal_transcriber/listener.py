@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Module-level reference so _handle_message can access it
 _config: Config | None = None
+_tasks: set[asyncio.Task] = set()
 
 
 async def listen(config: Config) -> None:
@@ -129,7 +130,7 @@ def _handle_message(raw: str) -> None:
             recipient = source
 
         for attachment in voice_attachments:
-            asyncio.create_task(
+            task = asyncio.create_task(
                 _process_voice_message(
                     attachment=attachment,
                     config=_config,
@@ -138,6 +139,8 @@ def _handle_message(raw: str) -> None:
                     quote_author=source,
                 )
             )
+            _tasks.add(task)
+            task.add_done_callback(_tasks.discard)
 
     elif data_message.get("message"):
         logger.info("Text message from %s", source)

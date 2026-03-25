@@ -1,21 +1,31 @@
 import asyncio
 import logging
 import subprocess
-import tempfile
 from pathlib import Path
 
 from openai import OpenAI
 
 from .config import Config
+from .utils import make_temp_path
 
 logger = logging.getLogger(__name__)
+
+_whisper_client: OpenAI | None = None
+
+
+def _get_client(api_key: str) -> OpenAI:
+    """Return a cached OpenAI client, creating one if needed."""
+    global _whisper_client
+    if _whisper_client is None:
+        _whisper_client = OpenAI(api_key=api_key)
+    return _whisper_client
 
 
 def _convert_to_m4a(audio_path: Path) -> Path:
     """Remux raw AAC/ADTS to M4A container (lossless, instant)."""
-    out = Path(tempfile.mktemp(suffix=".m4a"))
+    out = make_temp_path(suffix=".m4a")
     subprocess.run(
-        ["ffmpeg", "-i", str(audio_path), "-c:a", "copy",
+        ["ffmpeg", "-y", "-i", str(audio_path), "-c:a", "copy",
          "-bsf:a", "aac_adtstoasc", str(out)],
         check=True, capture_output=True,
     )
@@ -26,17 +36,17 @@ def _convert_to_m4a(audio_path: Path) -> Path:
 async def transcribe(audio_path: Path, config: Config) -> str:
     """Transcribe an audio file using OpenAI Whisper API."""
     m4a_path: Path | None = None
+    loop = asyncio.get_running_loop()
 
     try:
         # Remux to M4A if not already a Whisper-friendly format
         if audio_path.suffix.lower() not in (".m4a", ".mp3", ".mp4", ".ogg", ".wav", ".webm", ".flac"):
-            loop = asyncio.get_running_loop()
             m4a_path = await loop.run_in_executor(None, _convert_to_m4a, audio_path)
             whisper_input = m4a_path
         else:
             whisper_input = audio_path
 
-        client = OpenAI(api_key=config.openai_api_key)
+        client = _get_client(config.openai_api_key)
 
         def _call_whisper() -> str:
             with open(whisper_input, "rb") as f:
@@ -47,7 +57,6 @@ async def transcribe(audio_path: Path, config: Config) -> str:
                 )
             return result
 
-        loop = asyncio.get_running_loop()
         transcript = await loop.run_in_executor(None, _call_whisper)
         logger.info("Transcription complete (%d chars)", len(transcript))
         return transcript

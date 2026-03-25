@@ -1,3 +1,15 @@
+import os
+import tempfile
+from pathlib import Path
+
+
+def make_temp_path(suffix: str = ".m4a") -> Path:
+    """Create a temp file atomically and return its path."""
+    fd, name = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    return Path(name)
+
+
 def is_voice_message(attachment: dict) -> bool:
     """Detect if an attachment is a voice message."""
     if attachment.get("voiceNote", False):

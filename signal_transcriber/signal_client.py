@@ -1,24 +1,28 @@
 import logging
 import shutil
-import tempfile
 from pathlib import Path
 
 import aiohttp
 
 from .config import Config
+from .utils import make_temp_path
 
 logger = logging.getLogger(__name__)
 
 
 async def download_attachment(attachment_id: str, config: Config) -> Path:
     """Download an attachment, trying shared volume first, then REST API."""
+    suffix = Path(attachment_id).suffix or ".m4a"
+
     # Try shared volume path
     volume_path = Path(config.attachment_dir) / attachment_id
-    if volume_path.exists():
-        tmp = Path(tempfile.mktemp(suffix=Path(attachment_id).suffix or ".m4a"))
+    try:
+        tmp = make_temp_path(suffix=suffix)
         shutil.copy2(volume_path, tmp)
         logger.info("Attachment %s copied from volume (%d bytes)", attachment_id, tmp.stat().st_size)
         return tmp
+    except FileNotFoundError:
+        tmp.unlink(missing_ok=True)
 
     # Fall back to REST API
     url = f"{config.signal_api_url}/v1/attachments/{attachment_id}"
@@ -27,7 +31,7 @@ async def download_attachment(attachment_id: str, config: Config) -> Path:
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             resp.raise_for_status()
-            tmp = Path(tempfile.mktemp(suffix=Path(attachment_id).suffix or ".m4a"))
+            tmp = make_temp_path(suffix=suffix)
             with open(tmp, "wb") as f:
                 async for chunk in resp.content.iter_chunked(8192):
                     f.write(chunk)
