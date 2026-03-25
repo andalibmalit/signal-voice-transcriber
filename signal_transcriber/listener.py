@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import signal
+from collections import OrderedDict
 from pathlib import Path
 
 import aiohttp
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 # Module-level reference so _handle_message can access it
 _config: Config | None = None
 _tasks: set[asyncio.Task] = set()
+_seen: OrderedDict[str, None] = OrderedDict()
+_SEEN_MAX = 1000
 
 
 async def listen(config: Config) -> None:
@@ -91,6 +94,15 @@ def _handle_message(raw: str) -> None:
     envelope = msg.get("envelope", msg)
     source = envelope.get("source", envelope.get("sourceNumber", "unknown"))
     timestamp = envelope.get("timestamp", "")
+
+    # Deduplicate (WebSocket reconnect can replay messages)
+    dedup_key = f"{source}_{timestamp}"
+    if dedup_key in _seen:
+        logger.debug("Duplicate message %s, skipping", dedup_key)
+        return
+    _seen[dedup_key] = None
+    if len(_seen) > _SEEN_MAX:
+        _seen.popitem(last=False)
 
     # Check dataMessage first, fall back to syncMessage.sentMessage (Note to Self)
     data_message = envelope.get("dataMessage")
