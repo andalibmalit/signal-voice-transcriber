@@ -2,17 +2,26 @@ import asyncio
 import json
 import logging
 import signal
+from pathlib import Path
 
 import aiohttp
 
 from .config import Config
+from .signal_client import download_attachment, send_reply
+from .transcriber import transcribe
 from .utils import is_voice_message
 
 logger = logging.getLogger(__name__)
 
+# Module-level reference so _handle_message can access it
+_config: Config | None = None
+
 
 async def listen(config: Config) -> None:
-    """Connect to signal-cli-rest-api WebSocket and log received messages."""
+    """Connect to signal-cli-rest-api WebSocket and process messages."""
+    global _config
+    _config = config
+
     url = f"{config.signal_api_url}/v1/receive/{config.signal_number}"
     ws_url = url.replace("http://", "ws://").replace("https://", "wss://")
 
@@ -54,8 +63,21 @@ async def listen(config: Config) -> None:
     logger.info("Listener shut down")
 
 
+def _should_transcribe(source: str, config: Config) -> bool:
+    """Check if this sender's voice messages should be transcribed."""
+    mode = config.transcribe_mode.lower()
+    if mode == "all":
+        return True
+    if mode == "allowlist":
+        return source in config.allowed_numbers
+    # own_only (default)
+    return source == config.signal_number
+
+
 def _handle_message(raw: str) -> None:
-    """Parse and log a message envelope."""
+    """Parse a message envelope and spawn transcription if voice message."""
+    assert _config is not None
+
     try:
         msg = json.loads(raw)
     except json.JSONDecodeError:
@@ -64,19 +86,19 @@ def _handle_message(raw: str) -> None:
 
     logger.debug("Raw: %s", raw[:2000])
 
-    # WebSocket sends {"envelope": {…signal data…}, "account": "…"}
     envelope = msg.get("envelope", msg)
-
     source = envelope.get("source", envelope.get("sourceNumber", "unknown"))
     timestamp = envelope.get("timestamp", "")
 
     # Check dataMessage first, fall back to syncMessage.sentMessage (Note to Self)
     data_message = envelope.get("dataMessage")
+    is_sync = False
     if data_message is None:
         sync_sent = envelope.get("syncMessage", {}).get("sentMessage")
         if sync_sent is not None:
             data_message = sync_sent
             source = envelope.get("source", "self")
+            is_sync = True
 
     if data_message is None:
         logger.info("Envelope from %s (no dataMessage or syncMessage), keys: %s",
@@ -91,7 +113,74 @@ def _handle_message(raw: str) -> None:
         context = f"group {group_info['groupId']}" if group_info else "direct"
         logger.info("Voice message detected from %s (%s) — %d attachment(s), timestamp=%s",
                      source, context, len(voice_attachments), timestamp)
+
+        if not _should_transcribe(source, _config):
+            logger.info("Skipped voice message (sender not in allowlist)")
+            return
+
+        # Determine reply recipient
+        if group_info:
+            recipient = f"group.{group_info['groupId']}"
+        elif is_sync:
+            # syncMessage.sentMessage: reply to the destination, not ourselves
+            dest = data_message.get("destination")
+            recipient = dest if dest else source
+        else:
+            recipient = source
+
+        for attachment in voice_attachments:
+            asyncio.create_task(
+                _process_voice_message(
+                    attachment=attachment,
+                    config=_config,
+                    recipient=recipient,
+                    quote_timestamp=int(timestamp) if timestamp else 0,
+                    quote_author=source,
+                )
+            )
+
     elif data_message.get("message"):
         logger.info("Text message from %s", source)
     else:
         logger.info("Message from %s (no text, no voice)", source)
+
+
+async def _process_voice_message(
+    attachment: dict,
+    config: Config,
+    recipient: str,
+    quote_timestamp: int,
+    quote_author: str,
+) -> None:
+    """Download, transcribe, and reply with the transcript."""
+    attachment_id = attachment.get("id", "")
+    audio_path: Path | None = None
+
+    try:
+        # Check file size
+        size = attachment.get("size", 0)
+        max_bytes = config.max_audio_size_mb * 1024 * 1024
+        if size > max_bytes:
+            logger.warning("Attachment %s too large (%d bytes), skipping", attachment_id, size)
+            return
+
+        audio_path = await download_attachment(attachment_id, config)
+        transcript = await transcribe(audio_path, config)
+
+        reply_text = f"Transcription:\n\n{transcript}"
+        await send_reply(config, recipient, reply_text, quote_timestamp, quote_author)
+
+    except Exception:
+        logger.exception("Failed to process voice message %s", attachment_id)
+        try:
+            await send_reply(
+                config, recipient,
+                "Could not transcribe this voice message.",
+                quote_timestamp, quote_author,
+            )
+        except Exception:
+            logger.exception("Failed to send error reply")
+    finally:
+        if audio_path and audio_path.exists():
+            audio_path.unlink()
+            logger.debug("Cleaned up temp file %s", audio_path)
