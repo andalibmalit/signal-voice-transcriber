@@ -22,7 +22,7 @@ A self-hosted bot that automatically transcribes voice messages in Signal using 
 ### 1. Clone and configure
 
 ```bash
-git clone https://github.com/your-user/signal-voice-transcriber.git
+git clone https://github.com/andalibmalit/signal-voice-transcriber.git
 cd signal-voice-transcriber
 cp .env.example .env
 # Edit .env with your values (at minimum: SIGNAL_NUMBER, OPENAI_API_KEY)

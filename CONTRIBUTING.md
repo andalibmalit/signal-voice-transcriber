@@ -6,7 +6,7 @@ Thanks for your interest in contributing to Signal Voice Transcriber!
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-user/signal-voice-transcriber.git
+git clone https://github.com/andalibmalit/signal-voice-transcriber.git
 cd signal-voice-transcriber
 
 # Create a virtual environment
