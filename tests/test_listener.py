@@ -1,7 +1,16 @@
 import json
+
+import pytest
 from unittest.mock import patch, AsyncMock
 
+import signal_transcriber.listener as listener_mod
 from signal_transcriber.listener import _should_transcribe, _handle_message
+
+
+@pytest.fixture(autouse=True)
+def clear_seen():
+    """Reset dedup state between tests."""
+    listener_mod._seen.clear()
 
 
 def test_should_transcribe_all(config):
@@ -21,7 +30,6 @@ def test_should_transcribe_allowlist(config):
 
 
 def test_handle_voice_message_spawns_task(config):
-    import signal_transcriber.listener as listener_mod
     listener_mod._config = config
     config.transcribe_mode = "all"
 
@@ -44,7 +52,6 @@ def test_handle_voice_message_spawns_task(config):
 
 
 def test_handle_text_message_no_task(config):
-    import signal_transcriber.listener as listener_mod
     listener_mod._config = config
 
     envelope = {
@@ -65,7 +72,6 @@ def test_handle_text_message_no_task(config):
 
 
 def test_handle_voice_message_skipped_by_privacy(config):
-    import signal_transcriber.listener as listener_mod
     listener_mod._config = config
     config.transcribe_mode = "own_only"
 
@@ -83,3 +89,26 @@ def test_handle_voice_message_skipped_by_privacy(config):
         _handle_message(json.dumps(envelope))
 
     mock_task.assert_not_called()
+
+
+def test_duplicate_message_skipped(config):
+    listener_mod._config = config
+    config.transcribe_mode = "all"
+
+    envelope = {
+        "envelope": {
+            "source": "+10000000000",
+            "timestamp": 9999999999,
+            "dataMessage": {
+                "attachments": [{"voiceNote": True, "id": "dup1", "size": 1000}],
+            },
+        }
+    }
+
+    with patch("signal_transcriber.listener.asyncio.create_task") as mock_task:
+        mock_task.return_value = AsyncMock()
+        mock_task.return_value.add_done_callback = lambda _: None
+        _handle_message(json.dumps(envelope))
+        _handle_message(json.dumps(envelope))  # duplicate
+
+    mock_task.assert_called_once()
