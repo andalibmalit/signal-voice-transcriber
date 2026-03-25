@@ -7,6 +7,7 @@ from pathlib import Path
 import aiohttp
 
 from .config import Config
+from .formatter import format_transcript
 from .signal_client import download_attachment, send_reply
 from .transcriber import transcribe
 from .utils import is_voice_message
@@ -169,6 +170,9 @@ async def _process_voice_message(
 
         audio_path = await download_attachment(attachment_id, config)
         transcript = await transcribe(audio_path, config)
+
+        if config.enable_formatting:
+            transcript = await format_transcript(transcript, config)
 
         reply_text = f"Transcription:\n\n{transcript}"
         await send_reply(config, recipient, reply_text, quote_timestamp, quote_author)
