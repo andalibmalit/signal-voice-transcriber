@@ -1,0 +1,33 @@
+services:
+  signal-api:
+    image: bbernhard/signal-cli-rest-api:latest
+    container_name: signal-api
+    restart: unless-stopped
+    environment:
+      - MODE=json-rpc
+      - JSON_RPC_TRUST_NEW_IDENTITIES=on-first-use
+    ports:
+      - "127.0.0.1:8082:8080"
+    volumes:
+      - signal-data:/home/.local/share/signal-cli
+
+  transcriber:
+    build: .
+    container_name: signal-transcriber
+    restart: unless-stopped
+    depends_on:
+      signal-api:
+        condition: service_started
+    environment:
+      - SIGNAL_API_URL=http://signal-api:8080
+      - SIGNAL_NUMBER=${SIGNAL_NUMBER}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GPT_MODEL=gpt-4o-mini
+      - WHISPER_MODEL=whisper-1
+      - ENABLE_GPT_FORMATTING=true
+      - LOG_LEVEL=INFO
+    volumes:
+      - signal-data:/home/.local/share/signal-cli:ro
+
+volumes:
+  signal-data:
