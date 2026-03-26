@@ -10,7 +10,6 @@ from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
-from faster_whisper import WhisperModel
 
 # Load .env before imports that read os.environ for Config defaults
 load_dotenv()
@@ -24,14 +23,14 @@ from .mock_signal_server import MockSignalServer  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-# Module-level Whisper model singleton — loaded once across all tests
-_whisper_model: WhisperModel | None = None
+_whisper_model = None
 
 
-def _get_whisper_model() -> WhisperModel:
+def _get_whisper_model():
     """Return a cached WhisperModel (loaded once per test session)."""
     global _whisper_model
     if _whisper_model is None:
+        from faster_whisper import WhisperModel
         _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
     return _whisper_model
 
@@ -42,7 +41,7 @@ async def _local_transcribe(audio_path: Path, config: Config) -> str:
 
     def _run() -> str:
         model = _get_whisper_model()
-        segments, info = model.transcribe(
+        segments, _info = model.transcribe(
             str(audio_path), beam_size=5, vad_filter=True,
         )
         return " ".join(seg.text.strip() for seg in segments)
@@ -130,9 +129,14 @@ async def start_bot(
         p.start()
         patches.append(p)
 
-    shutdown = asyncio.Event()
-    task = asyncio.create_task(listen(config, _shutdown=shutdown))
-    await server.wait_for_connection(timeout=5)
+    try:
+        shutdown = asyncio.Event()
+        task = asyncio.create_task(listen(config, _shutdown=shutdown))
+        await server.wait_for_connection(timeout=5)
+    except BaseException:
+        for p in patches:
+            p.stop()
+        raise
     return config, shutdown, task, patches
 
 
