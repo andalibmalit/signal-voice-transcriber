@@ -1,10 +1,13 @@
 import asyncio
 import logging
 
+from .backends import TranscriptionResult
 from .config import Config
 from .transcriber import get_openai_client
 
 logger = logging.getLogger(__name__)
+
+PAUSE_THRESHOLD = 1.5  # seconds — gap between segments that triggers a paragraph break
 
 _SYSTEM_PROMPT = (
     "Clean up this voice transcription. Fix punctuation, "
@@ -13,26 +16,64 @@ _SYSTEM_PROMPT = (
 )
 
 
-async def format_transcript(raw_text: str, config: Config) -> str:
-    """Format a raw transcript with GPT. Falls back to raw text on failure."""
+def format_with_pauses(result: TranscriptionResult) -> str:
+    """Insert paragraph breaks at natural speech pauses using segment timestamps."""
+    if not result.segments or len(result.segments) <= 1:
+        return result.text
+
+    paragraphs: list[str] = []
+    current_paragraph: list[str] = [result.segments[0].text]
+
+    for prev_seg, seg in zip(result.segments, result.segments[1:]):
+        gap = seg.start - prev_seg.end
+        if gap >= PAUSE_THRESHOLD:
+            paragraphs.append(" ".join(current_paragraph))
+            current_paragraph = [seg.text]
+        else:
+            current_paragraph.append(seg.text)
+
+    if current_paragraph:
+        paragraphs.append(" ".join(current_paragraph))
+
+    return "\n\n".join(paragraphs)
+
+
+async def _gpt_format(raw_text: str, config: Config) -> str:
+    """Format a transcript using GPT."""
     loop = asyncio.get_running_loop()
+    client = get_openai_client(config.openai_api_key, timeout=config.openai_timeout)
 
-    try:
-        client = get_openai_client(config.openai_api_key, timeout=config.openai_timeout)
+    def _call_gpt() -> str:
+        result = client.chat.completions.create(
+            model=config.gpt_model,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {"role": "user", "content": raw_text},
+            ],
+        )
+        return result.choices[0].message.content
 
-        def _call_gpt() -> str:
-            result = client.chat.completions.create(
-                model=config.gpt_model,
-                messages=[
-                    {"role": "system", "content": _SYSTEM_PROMPT},
-                    {"role": "user", "content": raw_text},
-                ],
-            )
-            return result.choices[0].message.content
+    formatted = await loop.run_in_executor(None, _call_gpt)
+    logger.info("Formatting complete (%d -> %d chars)", len(raw_text), len(formatted))
+    return formatted
 
-        formatted = await loop.run_in_executor(None, _call_gpt)
-        logger.info("Formatting complete (%d -> %d chars)", len(raw_text), len(formatted))
-        return formatted
-    except Exception:
-        logger.warning("GPT formatting failed, returning raw transcript", exc_info=True)
-        return raw_text
+
+async def format_transcript(
+    result_or_text: TranscriptionResult | str, config: Config
+) -> str:
+    """Format a transcript. Uses GPT if available, else pause-based breaks."""
+    if isinstance(result_or_text, str):
+        result = TranscriptionResult(text=result_or_text, segments=None, language=None)
+    else:
+        result = result_or_text
+
+    if config.enable_formatting and config.openai_api_key:
+        try:
+            return await _gpt_format(result.text, config)
+        except Exception:
+            logger.warning("GPT formatting failed, falling back to pause-based", exc_info=True)
+
+    if result.segments:
+        return format_with_pauses(result)
+
+    return result.text
