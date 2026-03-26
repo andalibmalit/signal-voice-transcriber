@@ -15,13 +15,26 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Install ffmpeg (required for audio conversion)
+# macOS: brew install ffmpeg
+# Ubuntu: sudo apt-get install ffmpeg
 ```
 
 ## Running tests
 
 ```bash
+# Run all tests
 pytest
+
+# Run only unit tests
+pytest tests/ --ignore=tests/e2e
+
+# Run only e2e tests (uses mock signal server, no Docker needed)
+pytest tests/e2e/
 ```
+
+The test suite includes unit tests (`tests/test_*.py`) for each module and an e2e suite (`tests/e2e/`) that uses a mock signal-cli-rest-api server. See `docs/specs/E2E_SPEC.md` for the e2e architecture.
 
 ## Submitting changes
 

@@ -1,3 +1,5 @@
+> **Note:** This is the original prompt spec used to guide implementation. The final codebase diverges in several ways — see the README and code for current behavior.
+
 # Automated E2E Test Suite — Development Spec
 
 ## Project context

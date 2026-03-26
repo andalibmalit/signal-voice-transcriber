@@ -6,7 +6,7 @@ A self-hosted bot that automatically transcribes voice messages in Signal using 
 
 1. Connects to [signal-cli-rest-api](https://github.com/bbernhard/signal-cli-rest-api) via WebSocket
 2. Detects incoming voice messages (voiceNote flag or audio content type heuristic)
-3. Downloads the audio attachment from the shared Docker volume (or REST API fallback)
+3. Downloads the audio attachment via the signal-cli REST API
 4. Sends the audio to OpenAI Whisper for transcription
 5. Optionally formats the transcript with GPT-4o-mini (punctuation, paragraph breaks)
 6. Replies to the original voice message with the transcription
@@ -72,13 +72,13 @@ Send yourself a voice message. The bot should reply with a transcription within 
 | `SIGNAL_NUMBER` | *(required)* | Your Signal phone number (E.164 format) |
 | `OPENAI_API_KEY` | *(required)* | OpenAI API key |
 | `SIGNAL_API_URL` | `http://signal-api:8080` | signal-cli-rest-api URL |
-| `ATTACHMENT_DIR` | `/home/.local/share/signal-cli/attachments` | Path to signal-cli attachments |
 | `WHISPER_MODEL` | `whisper-1` | OpenAI Whisper model |
 | `GPT_MODEL` | `gpt-4o-mini` | GPT model for formatting |
 | `ENABLE_GPT_FORMATTING` | `true` | Set to `false` to skip GPT formatting |
 | `TRANSCRIBE_MODE` | `own_only` | Privacy mode (see below) |
 | `ALLOWED_NUMBERS` | *(empty)* | Comma-separated phone numbers for allowlist mode |
 | `MAX_AUDIO_SIZE_MB` | `25` | Skip voice messages larger than this |
+| `OPENAI_TIMEOUT_SECONDS` | `120` | Timeout for OpenAI API calls (seconds) |
 | `LOG_LEVEL` | `INFO` | Python log level |
 
 ## Privacy and consent
@@ -103,8 +103,16 @@ A typical voice message (30 seconds) costs under $0.01 to transcribe and format.
 ## Development
 
 ```bash
+# Create a virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
+
+# Install ffmpeg (required for audio conversion)
+# macOS: brew install ffmpeg
+# Ubuntu: sudo apt-get install ffmpeg
 
 # Run tests
 pytest
