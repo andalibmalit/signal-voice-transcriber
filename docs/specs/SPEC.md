@@ -1,4 +1,22 @@
-> **Note:** This is the original prompt spec used to guide implementation. The final codebase diverges in several ways — see the README and code for current behavior.
+> **Note:** This is the original prompt spec used to guide implementation via Claude Code.
+> It was generated through a Claude.ai research session and used as the kickoff prompt
+> in plan mode. The final codebase diverges in several ways — see the README and code
+> for current behavior.
+>
+> **Key divergences from this spec:**
+> - Chose raw aiohttp WebSocket (Option B) from the start; signalbot was never used
+> - Attachment download uses REST API only; shared Docker volume approach was dropped (non-root container user can't read signal-cli's files)
+> - Added ffmpeg dependency to remux raw AAC/ADTS to M4A container for Whisper compatibility (not mentioned in spec)
+> - Added per-recipient queue-based workers to guarantee message ordering (spec used fire-and-forget tasks)
+> - Added duplicate message prevention via bounded OrderedDict to handle WebSocket reconnect replays
+> - Added automatic message splitting at ~1800 chars for long transcriptions (Signal truncates around 2000)
+> - Added sync message (syncMessage.sentMessage) support for linked-device "Note to Self" transcription
+> - Added configurable OpenAI API timeout (OPENAI_TIMEOUT_SECONDS, default 120s)
+> - Added startup validation: fail-fast checks for SIGNAL_NUMBER, OPENAI_API_KEY, and ffmpeg on PATH
+> - Dockerfile adds non-root `transcriber` user and installs ffmpeg; depends_on uses `service_healthy` instead of `service_started`
+> - Removed ATTACHMENT_DIR and CLEANUP_INTERVAL_HOURS config fields (unnecessary without shared volume)
+> - Comprehensive e2e test suite with mock Signal server replaces the spec's signalbot ChatTestCase approach
+> - docker-compose.yml maps host port 8082 instead of 8080
 
 # Signal Voice Message Transcriber Bot — Development Spec
 

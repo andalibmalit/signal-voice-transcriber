@@ -1,4 +1,19 @@
-> **Note:** This is the original prompt spec used to guide implementation. The final codebase diverges in several ways — see the README and code for current behavior.
+> **Note:** This is the original prompt spec used to guide e2e test implementation via Claude Code.
+> It was generated through a Claude.ai research session evaluating feasibility and cost,
+> then used as the kickoff prompt in plan mode. The final test suite diverges in several
+> ways — see the test code for current behavior.
+>
+> **Key divergences from this spec:**
+> - Audio fixtures use `.m4a` (AAC/MP4), not `.ogg` (Opus) — changed to match real Signal voice message format.
+> - Most tests call real OpenAI Whisper/GPT instead of mocking — `bot` fixture uses `OPENAI_API_KEY`; only error/mock-specific tests use `mock_bot` with a dummy key.
+> - Assertions use fuzzy keyword matching, not exact strings — real Whisper output is nondeterministic.
+> - `test_voice_note_flag_detected` was removed — redundant with `test_single_voice_message_transcribed`.
+> - `test_all_mode_transcribes_everyone` was not implemented — happy-path tests already default to `transcribe_mode="all"`.
+> - `test_non_voice_attachment_ignored` (image/jpeg) not implemented as a separate test — covered by `test_audio_file_with_filename_not_transcribed`.
+> - Startup validation only has the Dockerfile non-root check — env-var/config/ffmpeg tests stay in unit tests, not moved to e2e.
+> - Privacy-mode tests manage their own bot lifecycle via `start_bot()`/`stop_bot()` instead of the shared `bot` fixture, to support custom config overrides.
+> - `/v1/about` health-check endpoint not implemented in mock server — wasn't needed.
+> - `test_mock_server.py` has 10 detailed self-tests — spec mentioned standalone tests but didn't enumerate them.
 
 # Automated E2E Test Suite — Development Spec
 
