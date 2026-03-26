@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     depends_on:
       signal-api:
-        condition: service_started
+        condition: service_healthy
     environment:
       - SIGNAL_API_URL=http://signal-api:8080
       - SIGNAL_NUMBER=${SIGNAL_NUMBER}
