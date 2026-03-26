@@ -196,7 +196,12 @@ async def _recipient_worker(recipient: str) -> None:
             try:
                 job = await asyncio.wait_for(queue.get(), timeout=300)
             except asyncio.TimeoutError:
-                break
+                # wait_for cancels queue.get() on timeout; a put_nowait()
+                # at the boundary can leave an item in the queue with no
+                # consumer (CPython issue #92824).  Re-check before exiting.
+                if queue.empty():
+                    break
+                continue
             if job is None:  # Sentinel for shutdown
                 break
             try:
