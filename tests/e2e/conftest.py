@@ -18,7 +18,7 @@ from signal_transcriber.backends import TranscriptionResult  # noqa: E402
 from signal_transcriber.config import Config  # noqa: E402
 from signal_transcriber.listener import listen  # noqa: E402
 import signal_transcriber.listener as listener_mod  # noqa: E402
-import signal_transcriber.transcriber as transcriber_mod  # noqa: E402
+import signal_transcriber.formatter as formatter_mod  # noqa: E402
 
 from .mock_signal_server import MockSignalServer  # noqa: E402
 
@@ -96,7 +96,7 @@ async def start_bot(
     If mock_backend is provided, create_backend() is patched to return it.
     Otherwise, create_backend() runs normally (creating a real LocalWhisperBackend).
     """
-    transcriber_mod._openai_client = None
+    formatter_mod._openai_client = None
 
     defaults: dict[str, Any] = dict(
         signal_api_url=server.url,

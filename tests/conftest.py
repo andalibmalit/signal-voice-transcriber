@@ -2,18 +2,18 @@ import pytest
 
 from signal_transcriber.config import Config
 import signal_transcriber.listener as listener_mod
-import signal_transcriber.transcriber as transcriber_mod
+import signal_transcriber.formatter as formatter_mod
 
 
 @pytest.fixture(autouse=True)
 def _reset_module_state() -> None:
-    """Reset module-level state between tests (listener + transcriber)."""
+    """Reset module-level state between tests (listener + formatter)."""
     listener_mod._config = None
     listener_mod._backend = None
     listener_mod._seen.clear()
     listener_mod._queues.clear()
     listener_mod._workers.clear()
-    transcriber_mod._openai_client = None
+    formatter_mod._openai_client = None
 
 
 @pytest.fixture

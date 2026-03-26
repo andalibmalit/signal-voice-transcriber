@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import signal_transcriber.transcriber as transcriber_mod
+import signal_transcriber.formatter as formatter_mod
 from .conftest import make_voice_envelope, start_bot, stop_bot
 from .mock_signal_server import MockSignalServer
 
@@ -23,10 +23,10 @@ async def test_gpt_failure_returns_raw_transcript(
         mock_signal_server, enable_formatting=True, openai_api_key="dummy-key",
     )
 
-    # Break only the GPT method — transcription uses local faster-whisper (patched by start_bot).
+    # Break only the GPT method — transcription uses real LocalWhisperBackend.
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = RuntimeError("Simulated GPT failure")
-    transcriber_mod._openai_client = mock_client
+    formatter_mod._openai_client = mock_client
     try:
         envelope = make_voice_envelope(source="+11111111111", timestamp=8000)
         await mock_signal_server.inject_envelope(envelope)

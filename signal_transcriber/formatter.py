@@ -3,9 +3,19 @@ import logging
 
 from .backends import TranscriptionResult
 from .config import Config
-from .transcriber import get_openai_client
 
 logger = logging.getLogger(__name__)
+
+_openai_client = None
+
+
+def get_openai_client(api_key: str, timeout: float = 120):
+    """Return a cached OpenAI client, creating one if needed."""
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
+        _openai_client = OpenAI(api_key=api_key, timeout=timeout)
+    return _openai_client
 
 PAUSE_THRESHOLD = 1.5  # seconds — gap between segments that triggers a paragraph break
 
