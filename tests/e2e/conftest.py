@@ -79,12 +79,13 @@ async def bot(
     yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server)  # type: ignore[misc]
 
     shutdown.set()
-    try:
-        await asyncio.wait_for(task, timeout=5)
-    except asyncio.TimeoutError:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+    if not task.done():
+        try:
+            await asyncio.wait_for(task, timeout=5)
+        except asyncio.TimeoutError:
+            task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
     # Cancel any lingering worker tasks to avoid "Event loop is closed" warnings
     for worker_task in list(listener_mod._workers.values()):
