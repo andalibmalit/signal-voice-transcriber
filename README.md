@@ -123,4 +123,6 @@ python -m signal_transcriber
 
 ## Acknowledgments
 
-Inspired by [voicemail-transcriber](https://github.com/jacksenechal/voicemail-transcriber) — a Telegram voice message transcriber using Telethon + Whisper + GPT. This project adapts the same AI pipeline for Signal.
+Inspired by: 
+- [voicemail-transcriber](https://github.com/jacksenechal/voicemail-transcriber) — a Telegram voice message transcriber using Telethon + Whisper + GPT. This project adapts the same AI pipeline for Signal.
+- [signal-transcriber](https://github.com/FriedrichVoelker/signal-transcriber) by Friedrich Voelker — a Signal voice transcriber using local Whisper in a multi-container setup
