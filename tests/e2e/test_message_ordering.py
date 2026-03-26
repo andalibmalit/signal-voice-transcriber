@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
-import signal_transcriber.transcriber as transcriber_mod
-from .conftest import BotHandle, make_voice_envelope, requires_openai
+from .conftest import BotHandle, make_voice_envelope
 
-pytestmark = [pytest.mark.e2e, requires_openai]
+pytestmark = [pytest.mark.e2e]
 
 
 async def test_three_messages_same_sender_in_order(

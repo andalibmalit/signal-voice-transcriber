@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import os
 from pathlib import Path
 from typing import Any, NamedTuple
+from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
+from faster_whisper import WhisperModel
 
 # Load .env before imports that read os.environ for Config defaults
 load_dotenv()
@@ -23,11 +24,30 @@ from .mock_signal_server import MockSignalServer  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-# Marker for tests that require a real OpenAI API key
-requires_openai = pytest.mark.skipif(
-    not os.environ.get("OPENAI_API_KEY"),
-    reason="OPENAI_API_KEY not set",
-)
+# Module-level Whisper model singleton — loaded once across all tests
+_whisper_model: WhisperModel | None = None
+
+
+def _get_whisper_model() -> WhisperModel:
+    """Return a cached WhisperModel (loaded once per test session)."""
+    global _whisper_model
+    if _whisper_model is None:
+        _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+    return _whisper_model
+
+
+async def _local_transcribe(audio_path: Path, config: Config) -> str:
+    """Drop-in replacement for transcriber.transcribe using local faster-whisper."""
+    loop = asyncio.get_running_loop()
+
+    def _run() -> str:
+        model = _get_whisper_model()
+        segments, info = model.transcribe(
+            str(audio_path), beam_size=5, vad_filter=True,
+        )
+        return " ".join(seg.text.strip() for seg in segments)
+
+    return await loop.run_in_executor(None, _run)
 
 
 @pytest.fixture(scope="session")
@@ -52,65 +72,74 @@ class BotHandle(NamedTuple):
     shutdown: asyncio.Event
     task: asyncio.Task  # type: ignore[type-arg]
     server: MockSignalServer
+    patches: list  # type: ignore[type-arg]
 
 
 @pytest.fixture
 async def bot(
     mock_signal_server: MockSignalServer,
 ) -> BotHandle:
-    """Start the bot connected to the mock server with real OpenAI client."""
-    config, shutdown, task = await start_bot(
-        mock_signal_server,
-        openai_api_key=os.environ["OPENAI_API_KEY"],
-    )
-    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server)  # type: ignore[misc]
-    await stop_bot(shutdown, task)
+    """Start the bot with real local transcription (no OpenAI API key needed)."""
+    config, shutdown, task, patches = await start_bot(mock_signal_server)
+    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server, patches=patches)  # type: ignore[misc]
+    await stop_bot(shutdown, task, patches)
 
 
 @pytest.fixture
 async def mock_bot(
     mock_signal_server: MockSignalServer,
 ) -> BotHandle:
-    """Start the bot with a dummy API key (no real OpenAI calls).
+    """Start the bot with a dummy API key (no real transcription).
 
     Use for tests that mock the OpenAI client or never trigger transcription.
     Does not require OPENAI_API_KEY in the environment.
     """
-    config, shutdown, task = await start_bot(
+    config, shutdown, task, patches = await start_bot(
         mock_signal_server,
         openai_api_key="dummy-key",
+        use_local_transcribe=False,
     )
-    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server)  # type: ignore[misc]
-    await stop_bot(shutdown, task)
+    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server, patches=patches)  # type: ignore[misc]
+    await stop_bot(shutdown, task, patches)
 
 
 async def start_bot(
     server: MockSignalServer,
+    *,
+    use_local_transcribe: bool = True,
     **config_overrides: Any,
-) -> tuple[Config, asyncio.Event, asyncio.Task]:  # type: ignore[type-arg]
-    """Start a bot with custom config. Returns (config, shutdown_event, listen_task)."""
+) -> tuple[Config, asyncio.Event, asyncio.Task, list]:  # type: ignore[type-arg]
+    """Start a bot with custom config. Returns (config, shutdown_event, listen_task, patches)."""
     transcriber_mod._openai_client = None
 
     defaults: dict[str, Any] = dict(
         signal_api_url=server.url,
         signal_number="+10000000000",
-        openai_api_key=os.environ.get("OPENAI_API_KEY", ""),
+        openai_api_key="",
         transcribe_mode="all",
+        enable_formatting=False,
         log_level="DEBUG",
         openai_timeout=30,
     )
     defaults.update(config_overrides)
     config = Config(**defaults)
 
+    patches: list = []
+    if use_local_transcribe:
+        p = patch("signal_transcriber.listener.transcribe", new=_local_transcribe)
+        p.start()
+        patches.append(p)
+
     shutdown = asyncio.Event()
     task = asyncio.create_task(listen(config, _shutdown=shutdown))
     await server.wait_for_connection(timeout=5)
-    return config, shutdown, task
+    return config, shutdown, task, patches
 
 
 async def stop_bot(
     shutdown: asyncio.Event,
     task: asyncio.Task,  # type: ignore[type-arg]
+    patches: list | None = None,
 ) -> None:
     """Shut down a bot started with start_bot()."""
     shutdown.set()
@@ -125,6 +154,8 @@ async def stop_bot(
         worker_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await worker_task
+    for p in (patches or []):
+        p.stop()
 
 
 def make_voice_envelope(

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import BotHandle, make_voice_envelope, requires_openai
+from .conftest import BotHandle, make_voice_envelope
 
-pytestmark = [pytest.mark.e2e, requires_openai]
+pytestmark = [pytest.mark.e2e]
 
 
 async def test_single_voice_message_transcribed(bot: BotHandle, audio_fixtures) -> None:

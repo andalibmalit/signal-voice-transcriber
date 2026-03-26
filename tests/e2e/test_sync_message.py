@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import BotHandle, make_sync_envelope, requires_openai
+from .conftest import BotHandle, make_sync_envelope
 
-pytestmark = [pytest.mark.e2e, requires_openai]
+pytestmark = [pytest.mark.e2e]
 
 
 async def test_sync_message_replies_to_destination(bot: BotHandle, audio_fixtures) -> None:

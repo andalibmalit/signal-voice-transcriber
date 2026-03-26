@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 
 import pytest
 
-import signal_transcriber.listener as listener_mod
-from .conftest import BotHandle, make_voice_envelope, requires_openai
+from .conftest import BotHandle, make_voice_envelope
 
-pytestmark = [pytest.mark.e2e, requires_openai]
+pytestmark = [pytest.mark.e2e]
 
 
 async def test_in_flight_transcription_completes_on_shutdown(
