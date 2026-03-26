@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import pytest
+from dotenv import load_dotenv
 
 from signal_transcriber.config import Config
+
+load_dotenv()
 from signal_transcriber.listener import listen
 import signal_transcriber.listener as listener_mod
 import signal_transcriber.transcriber as transcriber_mod
