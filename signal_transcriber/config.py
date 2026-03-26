@@ -4,6 +4,15 @@ import os
 
 @dataclass
 class Config:
+    def __post_init__(self) -> None:
+        self.transcribe_mode = self.transcribe_mode.lower()
+        valid_modes = {"own_only", "allowlist", "all"}
+        if self.transcribe_mode not in valid_modes:
+            raise ValueError(
+                f"Invalid TRANSCRIBE_MODE '{self.transcribe_mode}'. "
+                f"Must be one of: {', '.join(sorted(valid_modes))}"
+            )
+
     signal_api_url: str = field(
         default_factory=lambda: os.getenv("SIGNAL_API_URL", "http://signal-api:8080")
     )
