@@ -11,14 +11,15 @@ from typing import Any, NamedTuple
 import pytest
 from dotenv import load_dotenv
 
-from signal_transcriber.config import Config
-
+# Load .env before imports that read os.environ for Config defaults
 load_dotenv()
-from signal_transcriber.listener import listen
-import signal_transcriber.listener as listener_mod
-import signal_transcriber.transcriber as transcriber_mod
 
-from .mock_signal_server import MockSignalServer
+from signal_transcriber.config import Config  # noqa: E402
+from signal_transcriber.listener import listen  # noqa: E402
+import signal_transcriber.listener as listener_mod  # noqa: E402
+import signal_transcriber.transcriber as transcriber_mod  # noqa: E402
+
+from .mock_signal_server import MockSignalServer  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
