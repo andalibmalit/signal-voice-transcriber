@@ -13,6 +13,7 @@ import pytest
 
 from signal_transcriber.config import Config
 from signal_transcriber.listener import listen
+import signal_transcriber.listener as listener_mod
 import signal_transcriber.transcriber as transcriber_mod
 
 from .mock_signal_server import MockSignalServer
@@ -119,6 +120,12 @@ async def bot(
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+
+    # Cancel any lingering worker tasks to avoid "Event loop is closed" warnings
+    for worker_task in list(listener_mod._workers.values()):
+        worker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await worker_task
 
 
 def make_voice_envelope(
