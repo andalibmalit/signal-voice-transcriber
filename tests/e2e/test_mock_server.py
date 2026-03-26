@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
 import aiohttp
@@ -30,24 +31,21 @@ async def test_server_starts_and_returns_url(server: MockSignalServer) -> None:
 
 async def test_websocket_connects(server: MockSignalServer) -> None:
     async with aiohttp.ClientSession() as session:
-        ws_url = server.url.replace("http://", "ws://") + "/v1/receive/+10000000000"
-        async with session.ws_connect(ws_url) as ws:
+        async with session.ws_connect(f"{server.ws_url}/v1/receive/+10000000000") as ws:
             await server.wait_for_connection(timeout=2)
-            assert len(server._ws_connections) == 1
+            assert server.connection_count == 1
             assert not ws.closed
 
 
 async def test_inject_envelope(server: MockSignalServer) -> None:
     async with aiohttp.ClientSession() as session:
-        ws_url = server.url.replace("http://", "ws://") + "/v1/receive/+10000000000"
-        async with session.ws_connect(ws_url) as ws:
+        async with session.ws_connect(f"{server.ws_url}/v1/receive/+10000000000") as ws:
             await server.wait_for_connection(timeout=2)
 
             envelope = {"source": "+11111111111", "timestamp": 1000}
             await server.inject_envelope(envelope)
 
             msg = await asyncio.wait_for(ws.receive_str(), timeout=2)
-            import json
             data = json.loads(msg)
             assert data["envelope"]["source"] == "+11111111111"
             assert data["envelope"]["timestamp"] == 1000
@@ -94,23 +92,22 @@ async def test_attachment_404_for_unknown(server: MockSignalServer) -> None:
 
 async def test_drop_websocket_and_reconnect(server: MockSignalServer) -> None:
     async with aiohttp.ClientSession() as session:
-        ws_url = server.url.replace("http://", "ws://") + "/v1/receive/+10000000000"
+        ws_endpoint = f"{server.ws_url}/v1/receive/+10000000000"
 
         # First connection
-        ws1 = await session.ws_connect(ws_url)
+        ws1 = await session.ws_connect(ws_endpoint)
         await server.wait_for_connection(timeout=2)
-        assert len(server._ws_connections) == 1
+        assert server.connection_count == 1
 
         # Drop it
         await server.drop_websocket()
-        # Wait for the close message to arrive
         msg = await asyncio.wait_for(ws1.receive(), timeout=2)
         assert msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING)
 
         # Second connection
-        ws2 = await session.ws_connect(ws_url)
+        ws2 = await session.ws_connect(ws_endpoint)
         await server.wait_for_connection(timeout=2)
-        assert len(server._ws_connections) == 1
+        assert server.connection_count == 1
         await ws2.close()
 
 

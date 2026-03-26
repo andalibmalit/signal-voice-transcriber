@@ -41,6 +41,15 @@ class MockSignalServer:
     def url(self) -> str:
         return self._url
 
+    @property
+    def ws_url(self) -> str:
+        """WebSocket variant of the server URL."""
+        return self._url.replace("http://", "ws://")
+
+    @property
+    def connection_count(self) -> int:
+        return len(self._ws_connections)
+
     async def start(self, host: str = "127.0.0.1", port: int = 0) -> str:
         """Start the mock server. Returns base URL like 'http://127.0.0.1:54321'."""
         self._app = web.Application()
@@ -107,6 +116,7 @@ class MockSignalServer:
         self.attachment_requests.clear()
         self.attachment_map.clear()
         self.next_send_status = 200
+        self._connection_event = asyncio.Event()
         self._attachment_event = asyncio.Event()
 
     # --- aiohttp request handlers ---
@@ -133,7 +143,7 @@ class MockSignalServer:
     async def _send_handler(self, request: web.Request) -> web.Response:
         payload = await request.json()
         self.sent_messages.append(payload)
-        logger.debug("Recorded sent message #%d: %s", len(self.sent_messages), json.dumps(payload)[:200])
+        logger.debug("Recorded sent message #%d: %s", len(self.sent_messages), str(payload)[:200])
 
         async with self._message_condition:
             self._message_condition.notify_all()
