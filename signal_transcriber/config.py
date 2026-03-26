@@ -29,7 +29,7 @@ class Config:
         default_factory=lambda: os.getenv("GPT_MODEL", "gpt-4o-mini")
     )
     enable_formatting: bool = field(
-        default_factory=lambda: os.getenv("ENABLE_GPT_FORMATTING", "true").lower() == "true"
+        default_factory=lambda: os.getenv("ENABLE_GPT_FORMATTING", "false").lower() == "true"
     )
     log_level: str = field(
         default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")

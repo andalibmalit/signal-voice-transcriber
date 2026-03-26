@@ -84,6 +84,7 @@ Send yourself a voice message. The bot should reply with a transcription within 
 | `TRANSCRIPTION_BACKEND` | `local` | `local` for faster-whisper, `openai` for OpenAI API |
 | `WHISPER_MODEL` | `small` | Model size (`tiny`, `base`, `small`, `medium`, `large-v3`) or OpenAI model name (`whisper-1`) |
 | `WHISPER_COMPUTE_TYPE` | `int8` | Quantization: `int8`, `float16`, `float32` |
+| `WHISPER_DEVICE` | `cpu` | Device: `cpu` or `auto` (auto uses GPU if available) |
 | `WHISPER_CPU_THREADS` | `4` | CPU threads for inference |
 | `WHISPER_LANGUAGE` | `auto` | Language code (`en`, `de`, etc.) or `auto` |
 | `WHISPER_MODEL_DIR` | `/models` | Directory for cached model files |

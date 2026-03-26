@@ -24,12 +24,18 @@ services:
       - TRANSCRIPTION_BACKEND=${TRANSCRIPTION_BACKEND:-local}
       - WHISPER_MODEL=${WHISPER_MODEL:-small}
       - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
       - WHISPER_CPU_THREADS=${WHISPER_CPU_THREADS:-4}
       - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-auto}
-      # Optional: set these to enable cloud features
+      - TRANSCRIBE_MODE=${TRANSCRIBE_MODE:-own_only}
+      - MAX_AUDIO_SIZE_MB=${MAX_AUDIO_SIZE_MB:-25}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Optional: uncomment to enable cloud features
       # - OPENAI_API_KEY=${OPENAI_API_KEY}
       # - ENABLE_GPT_FORMATTING=true
-      - LOG_LEVEL=INFO
+      # - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
+      # - OPENAI_TIMEOUT_SECONDS=${OPENAI_TIMEOUT_SECONDS:-120}
+      # - ALLOWED_NUMBERS=${ALLOWED_NUMBERS}
     volumes:
       - whisper-models:/models
 
