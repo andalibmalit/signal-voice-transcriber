@@ -94,6 +94,49 @@ async def bot(
             await worker_task
 
 
+async def start_bot(
+    server: MockSignalServer,
+    **config_overrides: Any,
+) -> tuple[asyncio.Event, asyncio.Task]:  # type: ignore[type-arg]
+    """Start a bot with custom config. Returns (shutdown_event, listen_task)."""
+    transcriber_mod._openai_client = None
+
+    defaults: dict[str, Any] = dict(
+        signal_api_url=server.url,
+        signal_number="+10000000000",
+        openai_api_key=os.environ["OPENAI_API_KEY"],
+        transcribe_mode="all",
+        log_level="DEBUG",
+        openai_timeout=30,
+    )
+    defaults.update(config_overrides)
+    config = Config(**defaults)
+
+    shutdown = asyncio.Event()
+    task = asyncio.create_task(listen(config, _shutdown=shutdown))
+    await server.wait_for_connection(timeout=5)
+    return shutdown, task
+
+
+async def stop_bot(
+    shutdown: asyncio.Event,
+    task: asyncio.Task,  # type: ignore[type-arg]
+) -> None:
+    """Shut down a bot started with start_bot()."""
+    shutdown.set()
+    if not task.done():
+        try:
+            await asyncio.wait_for(task, timeout=5)
+        except asyncio.TimeoutError:
+            task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+    for worker_task in list(listener_mod._workers.values()):
+        worker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await worker_task
+
+
 def make_voice_envelope(
     source: str,
     timestamp: int,
