@@ -8,16 +8,16 @@ from typing import NamedTuple
 
 import aiohttp
 
+from .backends import TranscriptionBackend, create_backend
 from .config import Config
 from .formatter import format_transcript
 from .signal_client import download_attachment, send_reply
-from .transcriber import transcribe
 from .utils import is_voice_message, split_message
 
 logger = logging.getLogger(__name__)
 
-# Module-level reference so _handle_message can access it
 _config: Config | None = None
+_backend: TranscriptionBackend | None = None
 _seen: OrderedDict[tuple[str, str], None] = OrderedDict()
 _SEEN_MAX = 1000
 
@@ -36,8 +36,9 @@ class _VoiceJob(NamedTuple):
 
 async def listen(config: Config, _shutdown: asyncio.Event | None = None) -> None:
     """Connect to signal-cli-rest-api WebSocket and process messages."""
-    global _config
+    global _config, _backend
     _config = config
+    _backend = create_backend(config)
 
     url = f"{config.signal_api_url}/v1/receive/{config.signal_number}"
     ws_url = url.replace("http://", "ws://").replace("https://", "wss://")
@@ -110,6 +111,9 @@ async def listen(config: Config, _shutdown: asyncio.Event | None = None) -> None
             task.cancel()
         if pending:
             logger.warning("Cancelled %d worker(s) after timeout", len(pending))
+
+    if _backend:
+        await _backend.close()
 
     logger.info("Listener shut down")
 
@@ -261,12 +265,12 @@ async def _process_voice_message(
             return
 
         audio_path = await download_attachment(attachment_id, config)
-        transcript = await transcribe(audio_path, config)
 
-        if config.enable_formatting:
-            transcript = await format_transcript(transcript, config)
+        assert _backend is not None
+        result = await _backend.transcribe(audio_path)
+        formatted = await format_transcript(result, config)
 
-        reply_text = f"Transcription:\n\n{transcript}"
+        reply_text = f"Transcription:\n\n{formatted}"
         chunks = split_message(reply_text)
         await send_reply(config, recipient, chunks[0], quote_timestamp, quote_author)
         for chunk in chunks[1:]:

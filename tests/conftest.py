@@ -9,6 +9,7 @@ import signal_transcriber.transcriber as transcriber_mod
 def _reset_module_state() -> None:
     """Reset module-level state between tests (listener + transcriber)."""
     listener_mod._config = None
+    listener_mod._backend = None
     listener_mod._seen.clear()
     listener_mod._queues.clear()
     listener_mod._workers.clear()

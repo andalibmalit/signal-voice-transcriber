@@ -65,6 +65,6 @@ class Config:
     whisper_language: str = field(
         default_factory=lambda: os.getenv("WHISPER_LANGUAGE", "auto")
     )
-    whisper_model_dir: str = field(
+    whisper_model_dir: str | None = field(
         default_factory=lambda: os.getenv("WHISPER_MODEL_DIR", "/models")
     )

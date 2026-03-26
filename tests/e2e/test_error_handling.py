@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-import signal_transcriber.transcriber as transcriber_mod
+import signal_transcriber.listener as listener_mod
 from .conftest import (
     BotHandle,
     make_voice_envelope,
@@ -19,13 +19,13 @@ pytestmark = [pytest.mark.e2e]
 
 
 async def test_whisper_failure_sends_error_reply(mock_bot: BotHandle, audio_fixtures) -> None:
-    """When Whisper raises an exception, an error message is sent to the user."""
+    """When the backend raises an exception, an error message is sent to the user."""
     mock_bot.server.attachment_map["att_001"] = audio_fixtures["short_2s"]
 
-    # Replace OpenAI client with one that fails on transcription
-    mock_client = MagicMock()
-    mock_client.audio.transcriptions.create.side_effect = RuntimeError("Whisper exploded")
-    transcriber_mod._openai_client = mock_client
+    # Override the mock backend to raise on transcribe
+    mock_backend = AsyncMock()
+    mock_backend.transcribe.side_effect = RuntimeError("Whisper exploded")
+    listener_mod._backend = mock_backend
 
     envelope = make_voice_envelope(source="+11111111111", timestamp=10000)
     await mock_bot.server.inject_envelope(envelope)
@@ -62,8 +62,6 @@ async def test_audio_file_with_filename_not_transcribed(mock_bot: BotHandle) -> 
 
 async def test_oversized_attachment_skipped(mock_bot: BotHandle) -> None:
     """A voice attachment exceeding max_audio_size_mb should be silently skipped."""
-    # Config default max is 25 MB = 26_214_400 bytes.
-    # Create an envelope claiming the attachment is 30 MB.
     envelope = make_voice_envelope(
         source="+11111111111", timestamp=13000,
         attachment_id="att_big", size=30 * 1024 * 1024,
@@ -73,5 +71,4 @@ async def test_oversized_attachment_skipped(mock_bot: BotHandle) -> None:
     with pytest.raises(asyncio.TimeoutError):
         await mock_bot.server.wait_for_messages(1, timeout=3)
     assert len(mock_bot.server.sent_messages) == 0
-    # The attachment should NOT have been downloaded
     assert "att_big" not in mock_bot.server.attachment_requests

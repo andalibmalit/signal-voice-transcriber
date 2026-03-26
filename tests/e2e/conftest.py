@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 from pathlib import Path
 from typing import Any, NamedTuple
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from dotenv import load_dotenv
@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 # Load .env before imports that read os.environ for Config defaults
 load_dotenv()
 
+from signal_transcriber.backends import TranscriptionResult  # noqa: E402
 from signal_transcriber.config import Config  # noqa: E402
 from signal_transcriber.listener import listen  # noqa: E402
 import signal_transcriber.listener as listener_mod  # noqa: E402
@@ -22,31 +23,6 @@ import signal_transcriber.transcriber as transcriber_mod  # noqa: E402
 from .mock_signal_server import MockSignalServer  # noqa: E402
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
-
-_whisper_model = None
-
-
-def _get_whisper_model():
-    """Return a cached WhisperModel (loaded once per test session)."""
-    global _whisper_model
-    if _whisper_model is None:
-        from faster_whisper import WhisperModel
-        _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
-    return _whisper_model
-
-
-async def _local_transcribe(audio_path: Path, config: Config) -> str:
-    """Drop-in replacement for transcriber.transcribe using local faster-whisper."""
-    loop = asyncio.get_running_loop()
-
-    def _run() -> str:
-        model = _get_whisper_model()
-        segments, _info = model.transcribe(
-            str(audio_path), beam_size=5, vad_filter=True,
-        )
-        return " ".join(seg.text.strip() for seg in segments)
-
-    return await loop.run_in_executor(None, _run)
 
 
 @pytest.fixture(scope="session")
@@ -78,7 +54,10 @@ class BotHandle(NamedTuple):
 async def bot(
     mock_signal_server: MockSignalServer,
 ) -> BotHandle:
-    """Start the bot with real local transcription (no OpenAI API key needed)."""
+    """Start the bot with real local transcription (no OpenAI API key needed).
+
+    Uses a real LocalWhisperBackend created by create_backend().
+    """
     config, shutdown, task, patches = await start_bot(mock_signal_server)
     yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server, patches=patches)  # type: ignore[misc]
     await stop_bot(shutdown, task, patches)
@@ -88,15 +67,19 @@ async def bot(
 async def mock_bot(
     mock_signal_server: MockSignalServer,
 ) -> BotHandle:
-    """Start the bot with a dummy API key (no real transcription).
+    """Start the bot with a mocked backend (no real transcription).
 
-    Use for tests that mock the OpenAI client or never trigger transcription.
-    Does not require OPENAI_API_KEY in the environment.
+    Use for tests that need to control transcription behavior
+    (error injection, long output, etc.).
     """
+    mock_backend = AsyncMock()
+    mock_backend.transcribe.return_value = TranscriptionResult(
+        text="Mock transcription.", segments=None, language="en",
+    )
+
     config, shutdown, task, patches = await start_bot(
         mock_signal_server,
-        openai_api_key="dummy-key",
-        use_local_transcribe=False,
+        mock_backend=mock_backend,
     )
     yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server, patches=patches)  # type: ignore[misc]
     await stop_bot(shutdown, task, patches)
@@ -105,16 +88,22 @@ async def mock_bot(
 async def start_bot(
     server: MockSignalServer,
     *,
-    use_local_transcribe: bool = True,
+    mock_backend: AsyncMock | None = None,
     **config_overrides: Any,
 ) -> tuple[Config, asyncio.Event, asyncio.Task, list]:  # type: ignore[type-arg]
-    """Start a bot with custom config. Returns (config, shutdown_event, listen_task, patches)."""
+    """Start a bot with custom config. Returns (config, shutdown_event, listen_task, patches).
+
+    If mock_backend is provided, create_backend() is patched to return it.
+    Otherwise, create_backend() runs normally (creating a real LocalWhisperBackend).
+    """
     transcriber_mod._openai_client = None
 
     defaults: dict[str, Any] = dict(
         signal_api_url=server.url,
         signal_number="+10000000000",
         openai_api_key="",
+        whisper_model="small",
+        whisper_model_dir=None,  # Use faster-whisper default (~/.cache/huggingface)
         transcribe_mode="all",
         enable_formatting=False,
         log_level="DEBUG",
@@ -124,8 +113,8 @@ async def start_bot(
     config = Config(**defaults)
 
     patches: list = []
-    if use_local_transcribe:
-        p = patch("signal_transcriber.listener.transcribe", new=_local_transcribe)
+    if mock_backend is not None:
+        p = patch("signal_transcriber.listener.create_backend", return_value=mock_backend)
         p.start()
         patches.append(p)
 
