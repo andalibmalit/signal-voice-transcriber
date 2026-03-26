@@ -34,7 +34,7 @@ class _VoiceJob(NamedTuple):
     quote_author: str
 
 
-async def listen(config: Config) -> None:
+async def listen(config: Config, _shutdown: asyncio.Event | None = None) -> None:
     """Connect to signal-cli-rest-api WebSocket and process messages."""
     global _config
     _config = config
@@ -44,11 +44,12 @@ async def listen(config: Config) -> None:
 
     backoff = 1
     max_backoff = 60
-    shutdown = asyncio.Event()
+    shutdown = _shutdown or asyncio.Event()
 
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, shutdown.set)
+    if _shutdown is None:
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, shutdown.set)
 
     while not shutdown.is_set():
         try:
