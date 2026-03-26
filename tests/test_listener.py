@@ -1,7 +1,9 @@
+import asyncio
 import json
 
+import aiohttp
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 import signal_transcriber.listener as listener_mod
 from signal_transcriber.listener import (
@@ -202,3 +204,37 @@ def test_sync_message_without_destination_falls_back_to_source(config):
     assert "+10000000000" in listener_mod._queues
     job = listener_mod._queues["+10000000000"].get_nowait()
     assert job.recipient == "+10000000000"
+
+
+@pytest.mark.asyncio
+async def test_listen_exits_promptly_on_idle_shutdown(config: object) -> None:
+    """listen() exits within 2s when shutdown is set while idle (no messages)."""
+    shutdown = asyncio.Event()
+
+    # A ws.receive() that blocks forever (simulates idle WebSocket)
+    never_done = asyncio.Event()
+
+    async def _block_forever() -> aiohttp.WSMessage:
+        await never_done.wait()
+        return aiohttp.WSMessage(aiohttp.WSMsgType.CLOSED, None, None)
+
+    mock_ws = AsyncMock()
+    mock_ws.receive = _block_forever
+    mock_ws.__aenter__ = AsyncMock(return_value=mock_ws)
+    mock_ws.__aexit__ = AsyncMock(return_value=False)
+
+    mock_session = AsyncMock()
+    mock_session.ws_connect = MagicMock(return_value=mock_ws)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch(
+        "signal_transcriber.listener.aiohttp.ClientSession",
+        return_value=mock_session,
+    ):
+        task = asyncio.create_task(
+            listener_mod.listen(config, _shutdown=shutdown)
+        )
+        await asyncio.sleep(0.1)  # let it connect and enter receive loop
+        shutdown.set()
+        await asyncio.wait_for(task, timeout=2.0)  # must exit promptly

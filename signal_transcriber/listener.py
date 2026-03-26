@@ -59,14 +59,34 @@ async def listen(config: Config, _shutdown: asyncio.Event | None = None) -> None
                     logger.info("WebSocket connected")
                     backoff = 1
 
-                    async for msg in ws:
-                        if shutdown.is_set():
-                            break
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            _handle_message(msg.data)
-                        elif msg.type == aiohttp.WSMsgType.ERROR:
-                            logger.error("WebSocket error: %s", ws.exception())
-                            break
+                    shutdown_task = asyncio.ensure_future(shutdown.wait())
+                    try:
+                        while True:
+                            receive_task = asyncio.ensure_future(ws.receive())
+                            done, _ = await asyncio.wait(
+                                {shutdown_task, receive_task},
+                                return_when=asyncio.FIRST_COMPLETED,
+                            )
+                            if shutdown_task in done:
+                                receive_task.cancel()
+                                break
+                            msg = receive_task.result()
+                            if msg.type in (
+                                aiohttp.WSMsgType.CLOSE,
+                                aiohttp.WSMsgType.CLOSING,
+                                aiohttp.WSMsgType.CLOSED,
+                            ):
+                                break
+                            if msg.type == aiohttp.WSMsgType.TEXT:
+                                _handle_message(msg.data)
+                            elif msg.type == aiohttp.WSMsgType.ERROR:
+                                logger.error(
+                                    "WebSocket error: %s", ws.exception()
+                                )
+                                break
+                    finally:
+                        if not shutdown_task.done():
+                            shutdown_task.cancel()
         except (aiohttp.ClientError, OSError) as exc:
             logger.warning("Connection failed: %s", exc)
 
