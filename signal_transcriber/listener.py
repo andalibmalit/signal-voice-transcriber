@@ -4,6 +4,7 @@ import logging
 import signal
 from collections import OrderedDict
 from pathlib import Path
+from typing import NamedTuple
 
 import aiohttp
 
@@ -17,9 +18,20 @@ logger = logging.getLogger(__name__)
 
 # Module-level reference so _handle_message can access it
 _config: Config | None = None
-_tasks: set[asyncio.Task] = set()
 _seen: OrderedDict[tuple[str, str], None] = OrderedDict()
 _SEEN_MAX = 1000
+
+# Per-recipient queues and worker tasks for ordered processing
+_queues: dict[str, asyncio.Queue] = {}
+_workers: dict[str, asyncio.Task] = {}
+
+
+class _VoiceJob(NamedTuple):
+    attachment: dict
+    config: Config
+    recipient: str
+    quote_timestamp: int
+    quote_author: str
 
 
 async def listen(config: Config) -> None:
@@ -64,6 +76,19 @@ async def listen(config: Config) -> None:
             except asyncio.TimeoutError:
                 pass
             backoff = min(backoff * 2, max_backoff)
+
+    # Graceful shutdown: signal workers to stop and wait
+    if _workers:
+        logger.info("Shutting down %d worker(s)...", len(_workers))
+        for q in _queues.values():
+            q.put_nowait(None)  # Sentinel
+        done, pending = await asyncio.wait(
+            list(_workers.values()), timeout=30
+        )
+        for task in pending:
+            task.cancel()
+        if pending:
+            logger.warning("Cancelled %d worker(s) after timeout", len(pending))
 
     logger.info("Listener shut down")
 
@@ -143,22 +168,56 @@ def _handle_message(raw: str) -> None:
             recipient = source
 
         for attachment in voice_attachments:
-            task = asyncio.create_task(
-                _process_voice_message(
-                    attachment=attachment,
-                    config=_config,
-                    recipient=recipient,
-                    quote_timestamp=int(timestamp) if timestamp else 0,
-                    quote_author=source,
-                )
+            job = _VoiceJob(
+                attachment=attachment,
+                config=_config,
+                recipient=recipient,
+                quote_timestamp=int(timestamp) if timestamp else 0,
+                quote_author=source,
             )
-            _tasks.add(task)
-            task.add_done_callback(_tasks.discard)
+            if recipient not in _queues:
+                _queues[recipient] = asyncio.Queue()
+                _workers[recipient] = asyncio.create_task(
+                    _recipient_worker(recipient)
+                )
+            _queues[recipient].put_nowait(job)
 
     elif data_message.get("message"):
         logger.info("Text message from %s", source)
     else:
         logger.info("Message from %s (no text, no voice)", source)
+
+
+async def _recipient_worker(recipient: str) -> None:
+    """Process voice messages for a single recipient in order."""
+    queue = _queues[recipient]
+    try:
+        while True:
+            try:
+                job = await asyncio.wait_for(queue.get(), timeout=300)
+            except asyncio.TimeoutError:
+                # wait_for cancels queue.get() on timeout; a put_nowait()
+                # at the boundary can leave an item in the queue with no
+                # consumer (CPython issue #92824).  Re-check before exiting.
+                if queue.empty():
+                    break
+                continue
+            if job is None:  # Sentinel for shutdown
+                break
+            try:
+                await _process_voice_message(
+                    attachment=job.attachment,
+                    config=job.config,
+                    recipient=job.recipient,
+                    quote_timestamp=job.quote_timestamp,
+                    quote_author=job.quote_author,
+                )
+            finally:
+                queue.task_done()
+    finally:
+        _queues.pop(recipient, None)
+        _workers.pop(recipient, None)
+        logger.debug("Worker for %s exited", recipient)
 
 
 async def _process_voice_message(
