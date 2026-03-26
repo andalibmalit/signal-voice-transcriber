@@ -23,7 +23,7 @@ class Config:
         default_factory=lambda: os.getenv("OPENAI_API_KEY", "")
     )
     whisper_model: str = field(
-        default_factory=lambda: os.getenv("WHISPER_MODEL", "whisper-1")
+        default_factory=lambda: os.getenv("WHISPER_MODEL", "small")
     )
     gpt_model: str = field(
         default_factory=lambda: os.getenv("GPT_MODEL", "gpt-4o-mini")
@@ -49,4 +49,22 @@ class Config:
             for n in os.getenv("ALLOWED_NUMBERS", "").split(",")
             if n.strip()
         ]
+    )
+    transcription_backend: str = field(
+        default_factory=lambda: os.getenv("TRANSCRIPTION_BACKEND", "local")
+    )
+    whisper_compute_type: str = field(
+        default_factory=lambda: os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+    )
+    whisper_device: str = field(
+        default_factory=lambda: os.getenv("WHISPER_DEVICE", "cpu")
+    )
+    whisper_cpu_threads: int = field(
+        default_factory=lambda: int(os.getenv("WHISPER_CPU_THREADS", "4"))
+    )
+    whisper_language: str = field(
+        default_factory=lambda: os.getenv("WHISPER_LANGUAGE", "auto")
+    )
+    whisper_model_dir: str = field(
+        default_factory=lambda: os.getenv("WHISPER_MODEL_DIR", "/models")
     )
