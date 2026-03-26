@@ -1,6 +1,6 @@
 # Signal Voice Transcriber
 
-Python 3.11+ async project. Uses signal-cli-rest-api (Docker) + OpenAI Whisper/GPT.
+Python 3.11+ async project. Uses signal-cli-rest-api (Docker) + faster-whisper (local, default) or OpenAI Whisper/GPT (opt-in).
 
 ## Background
 Inspired by a [Telegram voice transcriber](https://github.com/jacksenechal/voicemail-transcriber) (Telethon + Whisper + GPT). This is a Signal adaptation.
