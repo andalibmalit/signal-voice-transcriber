@@ -28,3 +28,16 @@ def test_format_fallback_on_error(config):
         result = asyncio.run(format_transcript("raw text", config))
 
     assert result == "raw text"
+
+
+def test_format_passes_timeout_to_client(config):
+    """format_transcript passes the config timeout to get_openai_client."""
+    mock_client = MagicMock()
+    mock_client.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="Formatted."))]
+    )
+
+    with patch("signal_transcriber.formatter.get_openai_client", return_value=mock_client) as mock_get:
+        asyncio.run(format_transcript("raw text", config))
+
+    mock_get.assert_called_once_with(config.openai_api_key, timeout=config.openai_timeout)
