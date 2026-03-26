@@ -5,5 +5,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN groupadd -r transcriber && useradd -r -g transcriber transcriber
+RUN mkdir -p /models && chown transcriber:transcriber /models
 USER transcriber
 CMD ["python", "-m", "signal_transcriber"]

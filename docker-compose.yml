@@ -21,11 +21,18 @@ services:
     environment:
       - SIGNAL_API_URL=http://signal-api:8080
       - SIGNAL_NUMBER=${SIGNAL_NUMBER}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GPT_MODEL=gpt-4o-mini
-      - WHISPER_MODEL=whisper-1
-      - ENABLE_GPT_FORMATTING=true
+      - TRANSCRIPTION_BACKEND=${TRANSCRIPTION_BACKEND:-local}
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - WHISPER_CPU_THREADS=${WHISPER_CPU_THREADS:-4}
+      - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-auto}
+      # Optional: set these to enable cloud features
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - ENABLE_GPT_FORMATTING=true
       - LOG_LEVEL=INFO
+    volumes:
+      - whisper-models:/models
 
 volumes:
   signal-data:
+  whisper-models:
