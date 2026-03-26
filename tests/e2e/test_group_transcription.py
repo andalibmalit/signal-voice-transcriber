@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import BotHandle, make_voice_envelope
+from .conftest import BotHandle, make_voice_envelope, requires_openai
 
-pytestmark = pytest.mark.e2e
+pytestmark = [pytest.mark.e2e, requires_openai]
 
 
 async def test_group_voice_message_replies_to_group(bot: BotHandle, audio_fixtures) -> None:
@@ -21,3 +21,4 @@ async def test_group_voice_message_replies_to_group(bot: BotHandle, audio_fixtur
 
     msgs = await bot.server.wait_for_messages(1)
     assert msgs[0]["recipients"] == ["group.dGVzdGdyb3Vw"]
+    assert "test" in msgs[0]["message"].lower()

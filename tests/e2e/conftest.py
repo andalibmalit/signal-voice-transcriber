@@ -1,13 +1,12 @@
-"""E2E test fixtures: mock server, bot lifecycle, OpenAI mock, envelope factories."""
+"""E2E test fixtures: mock server, bot lifecycle, envelope factories."""
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
-import queue as queue_mod
+import os
 from pathlib import Path
 from typing import Any, NamedTuple
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,13 +19,19 @@ from .mock_signal_server import MockSignalServer
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
+# Marker for tests that require a real OpenAI API key
+requires_openai = pytest.mark.skipif(
+    not os.environ.get("OPENAI_API_KEY"),
+    reason="OPENAI_API_KEY not set",
+)
+
 
 @pytest.fixture(scope="session")
 def audio_fixtures() -> dict[str, Path]:
     return {
-        "hello_10s": FIXTURES_DIR / "hello_10s.ogg",
-        "short_2s": FIXTURES_DIR / "short_2s.ogg",
-        "long_60s": FIXTURES_DIR / "long_60s.ogg",
+        "hello_10s": FIXTURES_DIR / "hello_10s.m4a",
+        "short_2s": FIXTURES_DIR / "short_2s.m4a",
+        "long_60s": FIXTURES_DIR / "long_60s.m4a",
     }
 
 
@@ -36,49 +41,6 @@ async def mock_signal_server() -> MockSignalServer:
     await server.start()
     yield server  # type: ignore[misc]
     await server.stop()
-
-
-class MockWhisper:
-    """Thread-safe mock for Whisper transcription results.
-
-    Uses queue.Queue (not asyncio.Queue) because transcriber.py calls
-    OpenAI via run_in_executor, so the mock runs in a thread pool.
-    """
-
-    def __init__(self) -> None:
-        self._default = "Transcribed audio."
-        self._queue: queue_mod.Queue[str] = queue_mod.Queue()
-
-    def set_transcript(self, text: str) -> None:
-        self._default = text
-
-    def enqueue_transcript(self, text: str) -> None:
-        self._queue.put(text)
-
-    def __call__(self, **kwargs: Any) -> str:
-        try:
-            return self._queue.get_nowait()
-        except queue_mod.Empty:
-            return self._default
-
-
-@pytest.fixture
-def mock_openai() -> tuple[MagicMock, MockWhisper]:
-    """Mock OpenAI client with thread-safe Whisper and GPT mocks."""
-    mock_client = MagicMock()
-    whisper = MockWhisper()
-
-    mock_client.audio.transcriptions.create.side_effect = whisper
-
-    def _format_side_effect(**kwargs: Any) -> MagicMock:
-        raw = kwargs["messages"][1]["content"]
-        result = MagicMock()
-        result.choices = [MagicMock(message=MagicMock(content=f"[Formatted] {raw}"))]
-        return result
-
-    mock_client.chat.completions.create.side_effect = _format_side_effect
-
-    return mock_client, whisper
 
 
 class BotHandle(NamedTuple):
@@ -91,19 +53,18 @@ class BotHandle(NamedTuple):
 @pytest.fixture
 async def bot(
     mock_signal_server: MockSignalServer,
-    mock_openai: tuple[MagicMock, MockWhisper],
 ) -> BotHandle:
-    """Start the bot connected to the mock server, yield a handle, then shut down."""
-    mock_client, _whisper = mock_openai
-    transcriber_mod._openai_client = mock_client
+    """Start the bot connected to the mock server with real OpenAI client."""
+    # Ensure a fresh OpenAI client is created with the real API key
+    transcriber_mod._openai_client = None
 
     config = Config(
         signal_api_url=mock_signal_server.url,
         signal_number="+10000000000",
-        openai_api_key="test-key",
+        openai_api_key=os.environ["OPENAI_API_KEY"],
         transcribe_mode="all",
         log_level="DEBUG",
-        openai_timeout=10,
+        openai_timeout=30,
     )
 
     shutdown = asyncio.Event()

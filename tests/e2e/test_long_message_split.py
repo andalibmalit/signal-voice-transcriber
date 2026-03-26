@@ -2,22 +2,36 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from signal_transcriber.utils import MAX_MESSAGE_LENGTH
-from .conftest import BotHandle, MockWhisper, make_voice_envelope
+import signal_transcriber.transcriber as transcriber_mod
+from .conftest import BotHandle, make_voice_envelope, requires_openai
 
-pytestmark = pytest.mark.e2e
+pytestmark = [pytest.mark.e2e, requires_openai]
+
+# Long text guaranteed to exceed MAX_MESSAGE_LENGTH after formatting + prefix
+LONG_TRANSCRIPT = "word " * (MAX_MESSAGE_LENGTH // 3)
 
 
 async def test_long_transcript_splits_into_multiple_replies(
-    bot: BotHandle, mock_openai: tuple, audio_fixtures,
+    bot: BotHandle, audio_fixtures,
 ) -> None:
     """Transcript exceeding MAX_MESSAGE_LENGTH splits; first chunk is quoted, rest are not."""
-    _mock_client, whisper = mock_openai
-    # Generate a transcript longer than MAX_MESSAGE_LENGTH after formatting + prefix
-    long_text = "word " * (MAX_MESSAGE_LENGTH // 3)
-    whisper.set_transcript(long_text)
+    # Mock Whisper to return a very long transcript (real audio won't produce >1800 chars)
+    mock_client = MagicMock()
+    mock_client.audio.transcriptions.create.return_value = LONG_TRANSCRIPT
+
+    def _format_side_effect(**kwargs):
+        raw = kwargs["messages"][1]["content"]
+        result = MagicMock()
+        result.choices = [MagicMock(message=MagicMock(content=raw))]
+        return result
+
+    mock_client.chat.completions.create.side_effect = _format_side_effect
+    transcriber_mod._openai_client = mock_client
 
     bot.server.attachment_map["att_001"] = audio_fixtures["long_60s"]
 

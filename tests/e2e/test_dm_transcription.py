@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import BotHandle, make_voice_envelope
+from .conftest import BotHandle, make_voice_envelope, requires_openai
 
-pytestmark = pytest.mark.e2e
+pytestmark = [pytest.mark.e2e, requires_openai]
 
 
 async def test_single_voice_message_transcribed(bot: BotHandle, audio_fixtures) -> None:
@@ -19,7 +19,8 @@ async def test_single_voice_message_transcribed(bot: BotHandle, audio_fixtures) 
     msgs = await bot.server.wait_for_messages(1)
     msg = msgs[0]
     assert msg["recipients"] == ["+11111111111"]
-    assert "Transcribed audio." in msg["message"]
+    # Fuzzy match — Whisper is nondeterministic but the fixture says "test"
+    assert "test" in msg["message"].lower()
     assert msg["quote_timestamp"] == 1000
     assert msg["quote_author"] == "+11111111111"
     assert msg["quote_message"] == "\U0001f3a4 Voice message"
@@ -37,6 +38,7 @@ async def test_voice_note_flag_detected(bot: BotHandle, audio_fixtures) -> None:
 
     msgs = await bot.server.wait_for_messages(1)
     assert msgs[0]["recipients"] == ["+11111111111"]
+    assert "test" in msgs[0]["message"].lower()
 
 
 async def test_audio_wildcard_content_type(bot: BotHandle, audio_fixtures) -> None:
@@ -51,3 +53,4 @@ async def test_audio_wildcard_content_type(bot: BotHandle, audio_fixtures) -> No
 
     msgs = await bot.server.wait_for_messages(1)
     assert msgs[0]["recipients"] == ["+11111111111"]
+    assert "test" in msgs[0]["message"].lower()
