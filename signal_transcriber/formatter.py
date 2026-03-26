@@ -18,7 +18,7 @@ async def format_transcript(raw_text: str, config: Config) -> str:
     loop = asyncio.get_running_loop()
 
     try:
-        client = get_openai_client(config.openai_api_key)
+        client = get_openai_client(config.openai_api_key, timeout=config.openai_timeout)
 
         def _call_gpt() -> str:
             result = client.chat.completions.create(

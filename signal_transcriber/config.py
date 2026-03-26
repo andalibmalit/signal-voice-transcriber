@@ -33,6 +33,9 @@ class Config:
     max_audio_size_mb: int = field(
         default_factory=lambda: int(os.getenv("MAX_AUDIO_SIZE_MB", "25"))
     )
+    openai_timeout: int = field(
+        default_factory=lambda: int(os.getenv("OPENAI_TIMEOUT_SECONDS", "120"))
+    )
     transcribe_mode: str = field(
         default_factory=lambda: os.getenv("TRANSCRIBE_MODE", "own_only")
     )

@@ -17,4 +17,5 @@ def config() -> Config:
         max_audio_size_mb=25,
         transcribe_mode="own_only",
         allowed_numbers=["+11111111111", "+12222222222"],
+        openai_timeout=120,
     )

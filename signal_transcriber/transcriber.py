@@ -13,22 +13,26 @@ logger = logging.getLogger(__name__)
 _openai_client: OpenAI | None = None
 
 
-def get_openai_client(api_key: str) -> OpenAI:
+def get_openai_client(api_key: str, timeout: float = 120) -> OpenAI:
     """Return a cached OpenAI client, creating one if needed."""
     global _openai_client
     if _openai_client is None:
-        _openai_client = OpenAI(api_key=api_key)
+        _openai_client = OpenAI(api_key=api_key, timeout=timeout)
     return _openai_client
 
 
 def _convert_to_m4a(audio_path: Path) -> Path:
     """Remux raw AAC/ADTS to M4A container (lossless, instant)."""
     out = make_temp_path(suffix=".m4a")
-    subprocess.run(
-        ["ffmpeg", "-y", "-i", str(audio_path), "-c:a", "copy",
-         "-bsf:a", "aac_adtstoasc", str(out)],
-        check=True, capture_output=True,
-    )
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(audio_path), "-c:a", "copy",
+             "-bsf:a", "aac_adtstoasc", str(out)],
+            check=True, capture_output=True,
+        )
+    except subprocess.CalledProcessError:
+        out.unlink(missing_ok=True)
+        raise
     logger.debug("Converted %s -> %s", audio_path.name, out.name)
     return out
 
@@ -46,7 +50,7 @@ async def transcribe(audio_path: Path, config: Config) -> str:
         else:
             whisper_input = audio_path
 
-        client = get_openai_client(config.openai_api_key)
+        client = get_openai_client(config.openai_api_key, timeout=config.openai_timeout)
 
         def _call_whisper() -> str:
             with open(whisper_input, "rb") as f:
