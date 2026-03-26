@@ -13,17 +13,12 @@ import pytest
 
 from signal_transcriber.config import Config
 from signal_transcriber.listener import listen
-import signal_transcriber.listener as listener_mod
 import signal_transcriber.transcriber as transcriber_mod
 
 from .mock_signal_server import MockSignalServer
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
-
-# ---------------------------------------------------------------------------
-# Audio fixtures
-# ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="session")
 def audio_fixtures() -> dict[str, Path]:
@@ -34,10 +29,6 @@ def audio_fixtures() -> dict[str, Path]:
     }
 
 
-# ---------------------------------------------------------------------------
-# Mock Signal Server
-# ---------------------------------------------------------------------------
-
 @pytest.fixture
 async def mock_signal_server() -> MockSignalServer:
     server = MockSignalServer()
@@ -46,12 +37,12 @@ async def mock_signal_server() -> MockSignalServer:
     await server.stop()
 
 
-# ---------------------------------------------------------------------------
-# OpenAI mock (thread-safe for run_in_executor calls)
-# ---------------------------------------------------------------------------
-
 class MockWhisper:
-    """Thread-safe mock for Whisper transcription results."""
+    """Thread-safe mock for Whisper transcription results.
+
+    Uses queue.Queue (not asyncio.Queue) because transcriber.py calls
+    OpenAI via run_in_executor, so the mock runs in a thread pool.
+    """
 
     def __init__(self) -> None:
         self._default = "Transcribed audio."
@@ -89,25 +80,11 @@ def mock_openai() -> tuple[MagicMock, MockWhisper]:
     return mock_client, whisper
 
 
-# ---------------------------------------------------------------------------
-# Bot lifecycle
-# ---------------------------------------------------------------------------
-
 class BotHandle(NamedTuple):
     config: Config
     shutdown: asyncio.Event
     task: asyncio.Task  # type: ignore[type-arg]
     server: MockSignalServer
-
-
-@pytest.fixture(autouse=True)
-def _reset_listener_state() -> None:
-    """Reset module-level state in listener between tests."""
-    listener_mod._config = None
-    listener_mod._seen.clear()
-    listener_mod._queues.clear()
-    listener_mod._workers.clear()
-    transcriber_mod._openai_client = None
 
 
 @pytest.fixture
@@ -123,13 +100,8 @@ async def bot(
         signal_api_url=mock_signal_server.url,
         signal_number="+10000000000",
         openai_api_key="test-key",
-        whisper_model="whisper-1",
-        gpt_model="gpt-4o-mini",
-        enable_formatting=True,
-        log_level="DEBUG",
-        max_audio_size_mb=25,
         transcribe_mode="all",
-        allowed_numbers=[],
+        log_level="DEBUG",
         openai_timeout=10,
     )
 
@@ -148,10 +120,6 @@ async def bot(
         with contextlib.suppress(asyncio.CancelledError):
             await task
 
-
-# ---------------------------------------------------------------------------
-# Envelope factories
-# ---------------------------------------------------------------------------
 
 def make_voice_envelope(
     source: str,

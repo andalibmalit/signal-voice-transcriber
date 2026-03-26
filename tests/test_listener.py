@@ -11,18 +11,6 @@ from signal_transcriber.listener import (
 )
 
 
-@pytest.fixture(autouse=True)
-def clear_seen():
-    """Reset dedup state between tests."""
-    listener_mod._seen.clear()
-
-
-@pytest.fixture(autouse=True)
-def clear_queues_and_workers():
-    """Reset per-recipient queues and workers between tests."""
-    listener_mod._queues.clear()
-    listener_mod._workers.clear()
-
 
 def _voice_envelope(source: str, timestamp: int, attachment_id: str = "abc123") -> str:
     """Helper to build a JSON envelope with a voice attachment."""
