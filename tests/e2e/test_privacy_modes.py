@@ -21,7 +21,7 @@ async def test_own_only_transcribes_own_number(
 ) -> None:
     """own_only mode: bot's own number is transcribed."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
-    shutdown, task = await start_bot(mock_signal_server, transcribe_mode="own_only")
+    _, shutdown, task = await start_bot(mock_signal_server, transcribe_mode="own_only")
 
     try:
         envelope = make_voice_envelope(source=BOT_NUMBER, timestamp=1000)
@@ -37,7 +37,7 @@ async def test_own_only_rejects_other_number(
 ) -> None:
     """own_only mode: messages from other numbers are NOT transcribed."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
-    shutdown, task = await start_bot(mock_signal_server, transcribe_mode="own_only")
+    _, shutdown, task = await start_bot(mock_signal_server, transcribe_mode="own_only")
 
     try:
         envelope = make_voice_envelope(source=ALICE, timestamp=1000)
@@ -54,7 +54,7 @@ async def test_allowlist_accepts_listed_number(
 ) -> None:
     """allowlist mode: numbers in the list are transcribed."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
-    shutdown, task = await start_bot(
+    _, shutdown, task = await start_bot(
         mock_signal_server, transcribe_mode="allowlist", allowed_numbers=[ALICE],
     )
 
@@ -72,7 +72,7 @@ async def test_allowlist_rejects_unlisted_number(
 ) -> None:
     """allowlist mode: numbers NOT in the list are NOT transcribed."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
-    shutdown, task = await start_bot(
+    _, shutdown, task = await start_bot(
         mock_signal_server, transcribe_mode="allowlist", allowed_numbers=[ALICE],
     )
 

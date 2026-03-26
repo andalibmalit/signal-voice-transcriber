@@ -21,7 +21,7 @@ async def test_gpt_failure_returns_raw_transcript(
     """When GPT formatting fails, the raw Whisper transcript is sent instead."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
 
-    shutdown, task = await start_bot(mock_signal_server, enable_formatting=True)
+    _, shutdown, task = await start_bot(mock_signal_server, enable_formatting=True)
 
     # Pre-create the real OpenAI client, then break only the GPT method.
     # Whisper (audio.transcriptions.create) is a separate method and still works.
@@ -49,7 +49,7 @@ async def test_formatting_disabled_skips_gpt(
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
     transcriber_mod._openai_client = None
 
-    shutdown, task = await start_bot(mock_signal_server, enable_formatting=False)
+    _, shutdown, task = await start_bot(mock_signal_server, enable_formatting=False)
     try:
         envelope = make_voice_envelope(source="+11111111111", timestamp=9000)
         await mock_signal_server.inject_envelope(envelope)
