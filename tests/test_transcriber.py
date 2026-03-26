@@ -73,6 +73,20 @@ def test_get_openai_client_default_timeout():
         transcriber_mod._openai_client = None
 
 
+def test_get_openai_client_caching():
+    """Calling get_openai_client twice returns the same cached instance."""
+    transcriber_mod._openai_client = None
+    try:
+        with patch("signal_transcriber.transcriber.OpenAI") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            client1 = get_openai_client("test-key", timeout=60)
+            client2 = get_openai_client("test-key", timeout=60)
+            assert client1 is client2
+            mock_cls.assert_called_once()
+    finally:
+        transcriber_mod._openai_client = None
+
+
 def test_convert_to_m4a_cleans_up_on_failure():
     """_convert_to_m4a removes the temp file when ffmpeg fails."""
     mock_path = MagicMock(spec=Path)

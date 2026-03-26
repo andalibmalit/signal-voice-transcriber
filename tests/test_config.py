@@ -20,6 +20,20 @@ def test_transcribe_mode_own_only_normalized():
     assert cfg.transcribe_mode == "own_only"
 
 
+def test_missing_signal_number_exits():
+    with patch(
+        "signal_transcriber.__main__.Config",
+        return_value=Config(
+            signal_number="",
+            openai_api_key="test-key",
+            transcribe_mode="own_only",
+        ),
+    ), patch("signal_transcriber.__main__.load_dotenv"), pytest.raises(
+        SystemExit, match="SIGNAL_NUMBER environment variable is required"
+    ):
+        main()
+
+
 def test_missing_openai_api_key_exits():
     with patch(
         "signal_transcriber.__main__.Config",

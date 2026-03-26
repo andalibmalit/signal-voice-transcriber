@@ -8,16 +8,16 @@ import pytest
 
 from signal_transcriber.utils import MAX_MESSAGE_LENGTH
 import signal_transcriber.transcriber as transcriber_mod
-from .conftest import BotHandle, make_voice_envelope, requires_openai
+from .conftest import BotHandle, make_voice_envelope
 
-pytestmark = [pytest.mark.e2e, requires_openai]
+pytestmark = [pytest.mark.e2e]
 
 # Long text guaranteed to exceed MAX_MESSAGE_LENGTH after formatting + prefix
 LONG_TRANSCRIPT = "word " * (MAX_MESSAGE_LENGTH // 3)
 
 
 async def test_long_transcript_splits_into_multiple_replies(
-    bot: BotHandle, audio_fixtures,
+    mock_bot: BotHandle, audio_fixtures,
 ) -> None:
     """Transcript exceeding MAX_MESSAGE_LENGTH splits; first chunk is quoted, rest are not."""
     # Mock Whisper to return a very long transcript (real audio won't produce >1800 chars)
@@ -33,12 +33,12 @@ async def test_long_transcript_splits_into_multiple_replies(
     mock_client.chat.completions.create.side_effect = _format_side_effect
     transcriber_mod._openai_client = mock_client
 
-    bot.server.attachment_map["att_001"] = audio_fixtures["long_60s"]
+    mock_bot.server.attachment_map["att_001"] = audio_fixtures["long_60s"]
 
     envelope = make_voice_envelope(source="+11111111111", timestamp=1000)
-    await bot.server.inject_envelope(envelope)
+    await mock_bot.server.inject_envelope(envelope)
 
-    msgs = await bot.server.wait_for_messages(2)
+    msgs = await mock_bot.server.wait_for_messages(2)
 
     # First message: quoted reply
     assert msgs[0]["recipients"] == ["+11111111111"]

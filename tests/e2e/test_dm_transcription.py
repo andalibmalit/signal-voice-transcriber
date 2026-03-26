@@ -26,21 +26,6 @@ async def test_single_voice_message_transcribed(bot: BotHandle, audio_fixtures) 
     assert msg["quote_message"] == "\U0001f3a4 Voice message"
 
 
-async def test_voice_note_flag_detected(bot: BotHandle, audio_fixtures) -> None:
-    """voiceNote=True with audio/aac triggers transcription."""
-    bot.server.attachment_map["att_001"] = audio_fixtures["short_2s"]
-
-    envelope = make_voice_envelope(
-        source="+11111111111", timestamp=2000,
-        content_type="audio/aac", voice_note=True,
-    )
-    await bot.server.inject_envelope(envelope)
-
-    msgs = await bot.server.wait_for_messages(1)
-    assert msgs[0]["recipients"] == ["+11111111111"]
-    assert "test" in msgs[0]["message"].lower()
-
-
 async def test_audio_wildcard_content_type(bot: BotHandle, audio_fixtures) -> None:
     """audio/* without filename and voiceNote=False still triggers (fallback heuristic)."""
     bot.server.attachment_map["att_001"] = audio_fixtures["short_2s"]

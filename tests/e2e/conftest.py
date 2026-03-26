@@ -94,6 +94,48 @@ async def bot(
             await worker_task
 
 
+@pytest.fixture
+async def mock_bot(
+    mock_signal_server: MockSignalServer,
+) -> BotHandle:
+    """Start the bot with a dummy API key (no real OpenAI calls).
+
+    Use for tests that mock the OpenAI client or never trigger transcription.
+    Does not require OPENAI_API_KEY in the environment.
+    """
+    transcriber_mod._openai_client = None
+
+    config = Config(
+        signal_api_url=mock_signal_server.url,
+        signal_number="+10000000000",
+        openai_api_key="dummy-key",
+        transcribe_mode="all",
+        log_level="DEBUG",
+        openai_timeout=30,
+    )
+
+    shutdown = asyncio.Event()
+    task = asyncio.create_task(listen(config, _shutdown=shutdown))
+
+    await mock_signal_server.wait_for_connection(timeout=5)
+
+    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server)  # type: ignore[misc]
+
+    shutdown.set()
+    if not task.done():
+        try:
+            await asyncio.wait_for(task, timeout=5)
+        except asyncio.TimeoutError:
+            task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    for worker_task in list(listener_mod._workers.values()):
+        worker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await worker_task
+
+
 async def start_bot(
     server: MockSignalServer,
     **config_overrides: Any,

@@ -144,3 +144,61 @@ def test_two_messages_different_recipients_two_workers(config):
     assert mock_task.call_count == 2
     assert "+10000000000" in listener_mod._queues
     assert "+20000000000" in listener_mod._queues
+
+
+def test_multiple_voice_attachments_enqueued(config):
+    """Multiple voice attachments in one message each get their own job."""
+    listener_mod._config = config
+    config.transcribe_mode = "all"
+
+    raw = json.dumps({
+        "envelope": {
+            "source": "+10000000000",
+            "timestamp": 3333333333,
+            "dataMessage": {
+                "attachments": [
+                    {"voiceNote": True, "id": "att1", "size": 1000},
+                    {"voiceNote": True, "id": "att2", "size": 1000},
+                ],
+            },
+        }
+    })
+
+    with patch("signal_transcriber.listener.asyncio.create_task") as mock_task:
+        mock_task.return_value = AsyncMock()
+        _handle_message(raw)
+
+    recipient = "+10000000000"
+    assert listener_mod._queues[recipient].qsize() == 2
+    job1 = listener_mod._queues[recipient].get_nowait()
+    job2 = listener_mod._queues[recipient].get_nowait()
+    assert job1.attachment["id"] == "att1"
+    assert job2.attachment["id"] == "att2"
+
+
+def test_sync_message_without_destination_falls_back_to_source(config):
+    """syncMessage without destination routes reply to source."""
+    listener_mod._config = config
+    config.transcribe_mode = "all"
+
+    raw = json.dumps({
+        "envelope": {
+            "source": "+10000000000",
+            "timestamp": 4444444444,
+            "syncMessage": {
+                "sentMessage": {
+                    "attachments": [
+                        {"voiceNote": True, "id": "att_sync", "size": 1000}
+                    ],
+                },
+            },
+        }
+    })
+
+    with patch("signal_transcriber.listener.asyncio.create_task") as mock_task:
+        mock_task.return_value = AsyncMock()
+        _handle_message(raw)
+
+    assert "+10000000000" in listener_mod._queues
+    job = listener_mod._queues["+10000000000"].get_nowait()
+    assert job.recipient == "+10000000000"
