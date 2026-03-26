@@ -44,7 +44,8 @@ async def transcribe(audio_path: Path, config: Config) -> str:
 
     try:
         # Remux to M4A if not already a Whisper-friendly format
-        if audio_path.suffix.lower() not in (".m4a", ".mp3", ".mp4", ".ogg", ".wav", ".webm", ".flac"):
+        from .backends import WHISPER_ACCEPTED_SUFFIXES
+        if audio_path.suffix.lower() not in WHISPER_ACCEPTED_SUFFIXES:
             m4a_path = await loop.run_in_executor(None, _convert_to_m4a, audio_path)
             whisper_input = m4a_path
         else:

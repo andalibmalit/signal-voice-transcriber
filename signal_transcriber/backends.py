@@ -7,18 +7,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
-from openai import OpenAI
-
 from .config import Config
 
 logger = logging.getLogger(__name__)
 
-# Model names that are local-only (not valid OpenAI API model names)
 _LOCAL_MODEL_NAMES = {
     "tiny", "tiny.en", "base", "base.en", "small", "small.en",
     "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3",
-    "distil-large-v2", "distil-large-v3",
+    "large-v3-turbo", "turbo",
+    "distil-small.en", "distil-medium.en",
+    "distil-large-v2", "distil-large-v3", "distil-large-v3.5",
 }
+
+# Suffixes accepted by the OpenAI Whisper API without conversion
+WHISPER_ACCEPTED_SUFFIXES = frozenset(
+    {".m4a", ".mp3", ".mp4", ".ogg", ".wav", ".webm", ".flac"}
+)
 
 
 @dataclass
@@ -75,13 +79,12 @@ class LocalWhisperBackend:
                 vad_filter=True,
                 vad_parameters=dict(min_silence_duration_ms=1500),
             )
-            segments = []
-            text_parts = []
-            for seg in segments_gen:
-                segments.append(Segment(text=seg.text.strip(), start=seg.start, end=seg.end))
-                text_parts.append(seg.text.strip())
+            segments = [
+                Segment(text=seg.text.strip(), start=seg.start, end=seg.end)
+                for seg in segments_gen
+            ]
             return TranscriptionResult(
-                text=" ".join(text_parts),
+                text=" ".join(s.text for s in segments),
                 segments=segments,
                 language=info.language,
             )
@@ -97,7 +100,7 @@ class OpenAIWhisperBackend:
 
     def __init__(self, config: Config) -> None:
         self._config = config
-        self._client: OpenAI | None = None
+        self._client = None
 
     async def transcribe(self, audio_path: Path) -> TranscriptionResult:
         from .transcriber import _convert_to_m4a
@@ -105,7 +108,7 @@ class OpenAIWhisperBackend:
         m4a_path: Path | None = None
 
         try:
-            if audio_path.suffix.lower() not in (".m4a", ".mp3", ".mp4", ".ogg", ".wav", ".webm", ".flac"):
+            if audio_path.suffix.lower() not in WHISPER_ACCEPTED_SUFFIXES:
                 m4a_path = await loop.run_in_executor(None, _convert_to_m4a, audio_path)
                 whisper_input = m4a_path
             else:
@@ -113,6 +116,7 @@ class OpenAIWhisperBackend:
 
             def _run() -> TranscriptionResult:
                 if self._client is None:
+                    from openai import OpenAI
                     self._client = OpenAI(
                         api_key=self._config.openai_api_key,
                         timeout=self._config.openai_timeout,

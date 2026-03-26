@@ -125,7 +125,7 @@ async def test_openai_backend_transcribes():
     mock_client = MagicMock()
     mock_client.audio.transcriptions.create.return_value = "Hello world"
 
-    with patch("signal_transcriber.backends.OpenAI", return_value=mock_client), \
+    with patch("openai.OpenAI", return_value=mock_client), \
          patch("builtins.open", mock_open(read_data=b"audio data")):
         backend = OpenAIWhisperBackend(config)
         result = await backend.transcribe(Path("/tmp/test.m4a"))
@@ -147,17 +147,15 @@ async def test_openai_backend_converts_non_standard_format():
     mock_client = MagicMock()
     mock_client.audio.transcriptions.create.return_value = "Transcribed"
 
-    with patch("signal_transcriber.backends.OpenAI", return_value=mock_client), \
-         patch("signal_transcriber.backends.OpenAIWhisperBackend.transcribe") as _:
-        # Test the conversion check directly — .aac suffix triggers _convert_to_m4a
-        pass
-
-    # Simpler: just verify .m4a doesn't trigger conversion
-    with patch("signal_transcriber.backends.OpenAI", return_value=mock_client), \
-         patch("builtins.open", mock_open(read_data=b"audio")):
+    with patch("openai.OpenAI", return_value=mock_client), \
+         patch("signal_transcriber.transcriber._convert_to_m4a", return_value=Path("/tmp/converted.m4a")) as mock_convert, \
+         patch("builtins.open", mock_open(read_data=b"audio")), \
+         patch.object(Path, "exists", return_value=True), \
+         patch.object(Path, "unlink"):
         backend = OpenAIWhisperBackend(config)
-        await backend.transcribe(Path("/tmp/test.m4a"))
-    # No conversion needed for .m4a — passes through directly
+        await backend.transcribe(Path("/tmp/test.aac"))
+
+    mock_convert.assert_called_once()
 
 
 # --- create_backend ---
