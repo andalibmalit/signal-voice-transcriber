@@ -72,3 +72,30 @@ async def test_oversized_attachment_skipped(mock_bot: BotHandle) -> None:
         await mock_bot.server.wait_for_messages(1, timeout=3)
     assert len(mock_bot.server.sent_messages) == 0
     assert "att_big" not in mock_bot.server.attachment_requests
+
+
+async def test_attachment_download_failure_sends_error_reply(mock_bot: BotHandle) -> None:
+    """When the signal server returns 404 for an attachment, an error reply is sent."""
+    # Don't map att_001 — server will return 404
+    envelope = make_voice_envelope(source="+11111111111", timestamp=14000)
+    await mock_bot.server.inject_envelope(envelope)
+
+    msgs = await mock_bot.server.wait_for_messages(1, timeout=10)
+    assert msgs[0]["recipients"] == ["+11111111111"]
+    assert "could not transcribe" in msgs[0]["message"].lower()
+
+
+async def test_send_reply_failure_still_attempts_error_reply(
+    mock_bot: BotHandle, audio_fixtures,
+) -> None:
+    """When send_reply fails (500), bot attempts an error reply (also recorded)."""
+    mock_bot.server.attachment_map["att_001"] = audio_fixtures["short_2s"]
+    mock_bot.server.next_send_status = 500
+
+    envelope = make_voice_envelope(source="+11111111111", timestamp=15000)
+    await mock_bot.server.inject_envelope(envelope)
+
+    # Wait for both attempts: transcript send (fails) + error reply (also fails)
+    msgs = await mock_bot.server.wait_for_messages(2, timeout=15)
+    # Second payload should be the error-reply attempt
+    assert "could not transcribe" in msgs[1]["message"].lower()

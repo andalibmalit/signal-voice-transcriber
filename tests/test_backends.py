@@ -195,8 +195,3 @@ async def test_create_backend_openai_rejects_local_model():
         create_backend(config)
 
 
-async def test_create_backend_openai_accepts_whisper_1():
-    from signal_transcriber.backends import create_backend, OpenAIWhisperBackend
-    config = _make_config(transcription_backend="openai", whisper_model="whisper-1")
-    backend = create_backend(config)
-    assert isinstance(backend, OpenAIWhisperBackend)

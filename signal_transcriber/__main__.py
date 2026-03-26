@@ -25,7 +25,11 @@ def main() -> None:
     if config.transcription_backend == "openai" and not config.openai_api_key:
         raise SystemExit("TRANSCRIPTION_BACKEND=openai requires OPENAI_API_KEY")
 
-    if config.enable_formatting and not config.openai_api_key:
+    if config.enable_formatting and config.openai_api_key:
+        logger.info(
+            "GPT formatting enabled — transcripts will be sent to OpenAI"
+        )
+    elif config.enable_formatting and not config.openai_api_key:
         logger.info(
             "OPENAI_API_KEY not set — GPT formatting disabled, using pause-based formatting"
         )
@@ -46,7 +50,7 @@ def main() -> None:
         "Starting Signal Voice Transcriber for %s (backend=%s, model=%s)",
         config.signal_number, config.transcription_backend, config.whisper_model,
     )
-    asyncio.run(listen(config))
+    asyncio.run(listen(config, backend=backend))
 
 
 if __name__ == "__main__":

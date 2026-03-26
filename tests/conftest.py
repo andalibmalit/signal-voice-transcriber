@@ -21,10 +21,10 @@ def config() -> Config:
     return Config(
         signal_api_url="http://localhost:8080",
         signal_number="+10000000000",
-        openai_api_key="test-key",
-        whisper_model="whisper-1",
+        openai_api_key="",
+        whisper_model="small",
         gpt_model="gpt-4o-mini",
-        enable_formatting=True,
+        enable_formatting=False,
         log_level="DEBUG",
         max_audio_size_mb=25,
         transcribe_mode="own_only",

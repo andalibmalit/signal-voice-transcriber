@@ -34,11 +34,16 @@ class _VoiceJob(NamedTuple):
     quote_author: str
 
 
-async def listen(config: Config, _shutdown: asyncio.Event | None = None) -> None:
+async def listen(
+    config: Config,
+    _shutdown: asyncio.Event | None = None,
+    *,
+    backend: TranscriptionBackend | None = None,
+) -> None:
     """Connect to signal-cli-rest-api WebSocket and process messages."""
     global _config, _backend
     _config = config
-    _backend = create_backend(config)
+    _backend = backend or create_backend(config)
 
     url = f"{config.signal_api_url}/v1/receive/{config.signal_number}"
     ws_url = url.replace("http://", "ws://").replace("https://", "wss://")
@@ -131,7 +136,9 @@ def _should_transcribe(source: str, config: Config) -> bool:
 
 def _handle_message(raw: str) -> None:
     """Parse a message envelope and spawn transcription if voice message."""
-    assert _config is not None
+    if _config is None:
+        logger.error("_handle_message called before listen()")
+        return
 
     try:
         msg = json.loads(raw)

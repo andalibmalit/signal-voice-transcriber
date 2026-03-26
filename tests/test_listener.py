@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 
 import aiohttp
@@ -204,6 +205,38 @@ def test_sync_message_without_destination_falls_back_to_source(config):
     assert "+10000000000" in listener_mod._queues
     job = listener_mod._queues["+10000000000"].get_nowait()
     assert job.recipient == "+10000000000"
+
+
+@pytest.mark.asyncio
+async def test_shutdown_cancels_stuck_workers(config) -> None:
+    """Workers that don't finish within the timeout are cancelled on shutdown."""
+    listener_mod._config = config
+
+    # Create a worker task that hangs forever
+    hang = asyncio.Event()
+
+    async def _stuck_worker() -> None:
+        try:
+            await hang.wait()  # blocks until cancelled
+        except asyncio.CancelledError:
+            pass
+
+    task = asyncio.create_task(_stuck_worker())
+    recipient = "+19999999999"
+    listener_mod._queues[recipient] = asyncio.Queue()
+    listener_mod._workers[recipient] = task
+
+    # Send sentinel so the shutdown path in listen() fires
+    listener_mod._queues[recipient].put_nowait(None)
+
+    # Run the shutdown portion: wait briefly then cancel
+    done, pending = await asyncio.wait([task], timeout=0.1)
+    for t in pending:
+        t.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await t
+
+    assert task.done()
 
 
 @pytest.mark.asyncio

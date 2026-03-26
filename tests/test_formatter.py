@@ -14,6 +14,9 @@ from signal_transcriber.formatter import (
 
 
 def test_format_calls_gpt(config):
+    config.enable_formatting = True
+    config.openai_api_key = "test-key"
+
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content="Formatted text."))]
@@ -30,6 +33,9 @@ def test_format_calls_gpt(config):
 
 
 def test_format_fallback_on_error(config):
+    config.enable_formatting = True
+    config.openai_api_key = "test-key"
+
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = RuntimeError("API down")
 
@@ -40,6 +46,9 @@ def test_format_fallback_on_error(config):
 
 
 def test_format_passes_timeout_to_client(config):
+    config.enable_formatting = True
+    config.openai_api_key = "test-key"
+
     mock_client = MagicMock()
     mock_client.chat.completions.create.return_value = MagicMock(
         choices=[MagicMock(message=MagicMock(content="Formatted."))]
@@ -114,7 +123,7 @@ def test_format_with_pauses_multiple_paragraphs():
 
 
 def test_format_transcript_uses_pauses_when_no_key(config):
-    config.openai_api_key = ""
+    config.enable_formatting = True  # formatting requested but no key available
     result = TranscriptionResult(
         text="Hello world How are you",
         segments=[
@@ -142,13 +151,15 @@ def test_format_transcript_uses_pauses_when_formatting_disabled(config):
 
 
 def test_format_transcript_returns_raw_text_without_segments_or_key(config):
-    config.openai_api_key = ""
     result = TranscriptionResult(text="raw text", segments=None, language=None)
     formatted = asyncio.run(format_transcript(result, config))
     assert formatted == "raw text"
 
 
 def test_format_transcript_falls_back_on_gpt_failure(config):
+    config.enable_formatting = True
+    config.openai_api_key = "test-key"
+
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = RuntimeError("GPT down")
 
