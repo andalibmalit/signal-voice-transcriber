@@ -1,5 +1,4 @@
 import logging
-import shutil
 from pathlib import Path
 
 import aiohttp
@@ -11,20 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 async def download_attachment(attachment_id: str, config: Config) -> Path:
-    """Download an attachment, trying shared volume first, then REST API."""
+    """Download an attachment via the signal-cli REST API."""
     suffix = Path(attachment_id).suffix or ".m4a"
-
-    # Try shared volume path
-    volume_path = Path(config.attachment_dir) / attachment_id
-    try:
-        tmp = make_temp_path(suffix=suffix)
-        shutil.copy2(volume_path, tmp)
-        logger.info("Attachment %s copied from volume (%d bytes)", attachment_id, tmp.stat().st_size)
-        return tmp
-    except FileNotFoundError:
-        tmp.unlink(missing_ok=True)
-
-    # Fall back to REST API
     url = f"{config.signal_api_url}/v1/attachments/{attachment_id}"
     logger.info("Downloading attachment %s via REST API", attachment_id)
 

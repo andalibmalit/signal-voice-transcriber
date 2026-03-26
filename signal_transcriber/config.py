@@ -34,11 +34,6 @@ class Config:
     log_level: str = field(
         default_factory=lambda: os.getenv("LOG_LEVEL", "INFO")
     )
-    attachment_dir: str = field(
-        default_factory=lambda: os.getenv(
-            "ATTACHMENT_DIR", "/home/.local/share/signal-cli/attachments"
-        )
-    )
     max_audio_size_mb: int = field(
         default_factory=lambda: int(os.getenv("MAX_AUDIO_SIZE_MB", "25"))
     )

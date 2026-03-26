@@ -13,7 +13,6 @@ def config() -> Config:
         gpt_model="gpt-4o-mini",
         enable_formatting=True,
         log_level="DEBUG",
-        attachment_dir="/tmp/attachments",
         max_audio_size_mb=25,
         transcribe_mode="own_only",
         allowed_numbers=["+11111111111", "+12222222222"],

@@ -26,8 +26,6 @@ services:
       - WHISPER_MODEL=whisper-1
       - ENABLE_GPT_FORMATTING=true
       - LOG_LEVEL=INFO
-    volumes:
-      - signal-data:/home/.local/share/signal-cli:ro
 
 volumes:
   signal-data:
