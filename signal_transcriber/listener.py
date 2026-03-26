@@ -59,10 +59,10 @@ async def listen(config: Config, _shutdown: asyncio.Event | None = None) -> None
                     logger.info("WebSocket connected")
                     backoff = 1
 
-                    shutdown_task = asyncio.ensure_future(shutdown.wait())
+                    shutdown_task = asyncio.create_task(shutdown.wait())
                     try:
                         while True:
-                            receive_task = asyncio.ensure_future(ws.receive())
+                            receive_task = asyncio.create_task(ws.receive())
                             done, _ = await asyncio.wait(
                                 {shutdown_task, receive_task},
                                 return_when=asyncio.FIRST_COMPLETED,

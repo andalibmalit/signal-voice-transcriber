@@ -207,16 +207,12 @@ def test_sync_message_without_destination_falls_back_to_source(config):
 
 
 @pytest.mark.asyncio
-async def test_listen_exits_promptly_on_idle_shutdown(config: object) -> None:
+async def test_listen_exits_promptly_on_idle_shutdown(config) -> None:
     """listen() exits within 2s when shutdown is set while idle (no messages)."""
     shutdown = asyncio.Event()
 
-    # A ws.receive() that blocks forever (simulates idle WebSocket)
-    never_done = asyncio.Event()
-
     async def _block_forever() -> aiohttp.WSMessage:
-        await never_done.wait()
-        return aiohttp.WSMessage(aiohttp.WSMsgType.CLOSED, None, None)
+        await asyncio.Future()  # never completes
 
     mock_ws = AsyncMock()
     mock_ws.receive = _block_forever
