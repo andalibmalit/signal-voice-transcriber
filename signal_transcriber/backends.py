@@ -2,12 +2,14 @@
 
 import asyncio
 import logging
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 from .config import Config
+from .utils import make_temp_path
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,22 @@ class LocalWhisperBackend:
         self._executor.shutdown(wait=False)
 
 
+def _convert_to_m4a(audio_path: Path) -> Path:
+    """Remux raw AAC/ADTS to M4A container (lossless, instant)."""
+    out = make_temp_path(suffix=".m4a")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(audio_path), "-c:a", "copy",
+             "-bsf:a", "aac_adtstoasc", str(out)],
+            check=True, capture_output=True,
+        )
+    except subprocess.CalledProcessError:
+        out.unlink(missing_ok=True)
+        raise
+    logger.debug("Converted %s -> %s", audio_path.name, out.name)
+    return out
+
+
 class OpenAIWhisperBackend:
     """Cloud transcription using the OpenAI Whisper API."""
 
@@ -103,7 +121,6 @@ class OpenAIWhisperBackend:
         self._client = None
 
     async def transcribe(self, audio_path: Path) -> TranscriptionResult:
-        from .transcriber import _convert_to_m4a
         loop = asyncio.get_running_loop()
         m4a_path: Path | None = None
 

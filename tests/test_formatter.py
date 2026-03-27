@@ -6,11 +6,10 @@ from signal_transcriber.formatter import (
     format_transcript,
     format_with_pauses,
     _SYSTEM_PROMPT,
-    PAUSE_THRESHOLD,
 )
 
 
-# --- Existing tests (string input, legacy path) ---
+# --- GPT formatting tests ---
 
 
 def test_format_calls_gpt(config):
@@ -22,8 +21,9 @@ def test_format_calls_gpt(config):
         choices=[MagicMock(message=MagicMock(content="Formatted text."))]
     )
 
+    tr = TranscriptionResult(text="raw text", segments=None, language=None)
     with patch("signal_transcriber.formatter.get_openai_client", return_value=mock_client):
-        result = asyncio.run(format_transcript("raw text", config))
+        result = asyncio.run(format_transcript(tr, config))
 
     assert result == "Formatted text."
     call_kwargs = mock_client.chat.completions.create.call_args[1]
@@ -39,8 +39,9 @@ def test_format_fallback_on_error(config):
     mock_client = MagicMock()
     mock_client.chat.completions.create.side_effect = RuntimeError("API down")
 
+    tr = TranscriptionResult(text="raw text", segments=None, language=None)
     with patch("signal_transcriber.formatter.get_openai_client", return_value=mock_client):
-        result = asyncio.run(format_transcript("raw text", config))
+        result = asyncio.run(format_transcript(tr, config))
 
     assert result == "raw text"
 
@@ -54,8 +55,9 @@ def test_format_passes_timeout_to_client(config):
         choices=[MagicMock(message=MagicMock(content="Formatted."))]
     )
 
+    tr = TranscriptionResult(text="raw text", segments=None, language=None)
     with patch("signal_transcriber.formatter.get_openai_client", return_value=mock_client) as mock_get:
-        asyncio.run(format_transcript("raw text", config))
+        asyncio.run(format_transcript(tr, config))
 
     mock_get.assert_called_once_with(config.openai_api_key, timeout=config.openai_timeout)
 

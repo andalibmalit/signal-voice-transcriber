@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
@@ -148,7 +147,7 @@ async def test_openai_backend_converts_non_standard_format():
     mock_client.audio.transcriptions.create.return_value = "Transcribed"
 
     with patch("openai.OpenAI", return_value=mock_client), \
-         patch("signal_transcriber.transcriber._convert_to_m4a", return_value=Path("/tmp/converted.m4a")) as mock_convert, \
+         patch("signal_transcriber.backends._convert_to_m4a", return_value=Path("/tmp/converted.m4a")) as mock_convert, \
          patch("builtins.open", mock_open(read_data=b"audio")), \
          patch.object(Path, "exists", return_value=True), \
          patch.object(Path, "unlink"):

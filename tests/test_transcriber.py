@@ -4,12 +4,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from signal_transcriber.transcriber import _convert_to_m4a
+from signal_transcriber.backends import _convert_to_m4a
 
 
 def test_convert_to_m4a_uses_overwrite_flag():
-    with patch("signal_transcriber.transcriber.subprocess.run") as mock_run, \
-         patch("signal_transcriber.transcriber.make_temp_path", return_value=Path("/tmp/out.m4a")):
+    with patch("signal_transcriber.backends.subprocess.run") as mock_run, \
+         patch("signal_transcriber.backends.make_temp_path", return_value=Path("/tmp/out.m4a")):
         mock_run.return_value = MagicMock(returncode=0)
         _convert_to_m4a(Path("/tmp/input.aac"))
 
@@ -21,8 +21,8 @@ def test_convert_to_m4a_uses_overwrite_flag():
 def test_convert_to_m4a_cleans_up_on_failure():
     """_convert_to_m4a removes the temp file when ffmpeg fails."""
     mock_path = MagicMock(spec=Path)
-    with patch("signal_transcriber.transcriber.make_temp_path", return_value=mock_path), \
-         patch("signal_transcriber.transcriber.subprocess.run",
+    with patch("signal_transcriber.backends.make_temp_path", return_value=mock_path), \
+         patch("signal_transcriber.backends.subprocess.run",
                side_effect=subprocess.CalledProcessError(1, "ffmpeg")), \
          pytest.raises(subprocess.CalledProcessError):
         _convert_to_m4a(Path("/tmp/input.aac"))

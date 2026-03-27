@@ -69,14 +69,9 @@ async def _gpt_format(raw_text: str, config: Config) -> str:
 
 
 async def format_transcript(
-    result_or_text: TranscriptionResult | str, config: Config
+    result: TranscriptionResult, config: Config
 ) -> str:
     """Format a transcript. Uses GPT if available, else pause-based breaks."""
-    if isinstance(result_or_text, str):
-        result = TranscriptionResult(text=result_or_text, segments=None, language=None)
-    else:
-        result = result_or_text
-
     if config.enable_formatting and config.openai_api_key:
         try:
             return await _gpt_format(result.text, config)

@@ -58,9 +58,9 @@ async def bot(
 
     Uses a real LocalWhisperBackend created by create_backend().
     """
-    config, shutdown, task, patches = await start_bot(mock_signal_server)
-    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server, patches=patches)  # type: ignore[misc]
-    await stop_bot(shutdown, task, patches)
+    handle = await start_bot(mock_signal_server)
+    yield handle  # type: ignore[misc]
+    await stop_bot(handle)
 
 
 @pytest.fixture
@@ -77,12 +77,9 @@ async def mock_bot(
         text="Mock transcription.", segments=None, language="en",
     )
 
-    config, shutdown, task, patches = await start_bot(
-        mock_signal_server,
-        mock_backend=mock_backend,
-    )
-    yield BotHandle(config=config, shutdown=shutdown, task=task, server=mock_signal_server, patches=patches)  # type: ignore[misc]
-    await stop_bot(shutdown, task, patches)
+    handle = await start_bot(mock_signal_server, mock_backend=mock_backend)
+    yield handle  # type: ignore[misc]
+    await stop_bot(handle)
 
 
 async def start_bot(
@@ -90,8 +87,8 @@ async def start_bot(
     *,
     mock_backend: AsyncMock | None = None,
     **config_overrides: Any,
-) -> tuple[Config, asyncio.Event, asyncio.Task, list]:  # type: ignore[type-arg]
-    """Start a bot with custom config. Returns (config, shutdown_event, listen_task, patches).
+) -> BotHandle:
+    """Start a bot with custom config. Returns a BotHandle.
 
     If mock_backend is provided, create_backend() is patched to return it.
     Otherwise, create_backend() runs normally (creating a real LocalWhisperBackend).
@@ -126,28 +123,24 @@ async def start_bot(
         for p in patches:
             p.stop()
         raise
-    return config, shutdown, task, patches
+    return BotHandle(config=config, shutdown=shutdown, task=task, server=server, patches=patches)
 
 
-async def stop_bot(
-    shutdown: asyncio.Event,
-    task: asyncio.Task,  # type: ignore[type-arg]
-    patches: list | None = None,
-) -> None:
+async def stop_bot(handle: BotHandle) -> None:
     """Shut down a bot started with start_bot()."""
-    shutdown.set()
-    if not task.done():
+    handle.shutdown.set()
+    if not handle.task.done():
         try:
-            await asyncio.wait_for(task, timeout=5)
+            await asyncio.wait_for(handle.task, timeout=5)
         except asyncio.TimeoutError:
-            task.cancel()
+            handle.task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
-        await task
+        await handle.task
     for worker_task in list(listener_mod._workers.values()):
         worker_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await worker_task
-    for p in (patches or []):
+    for p in handle.patches:
         p.stop()
 
 

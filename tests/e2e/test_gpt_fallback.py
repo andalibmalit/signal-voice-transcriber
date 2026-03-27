@@ -19,7 +19,7 @@ async def test_gpt_failure_returns_raw_transcript(
     """When GPT formatting fails, the raw Whisper transcript is sent instead."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
 
-    _, shutdown, task, patches = await start_bot(
+    handle = await start_bot(
         mock_signal_server, enable_formatting=True, openai_api_key="dummy-key",
     )
 
@@ -36,7 +36,7 @@ async def test_gpt_failure_returns_raw_transcript(
         # formatter.py catches the exception and returns raw transcript
         assert "test" in msgs[0]["message"].lower()
     finally:
-        await stop_bot(shutdown, task, patches)
+        await stop_bot(handle)
 
 
 async def test_formatting_disabled_skips_gpt(
@@ -45,7 +45,7 @@ async def test_formatting_disabled_skips_gpt(
     """When enable_formatting=False, GPT is never called."""
     mock_signal_server.attachment_map["att_001"] = audio_fixtures["short_2s"]
 
-    _, shutdown, task, patches = await start_bot(mock_signal_server, enable_formatting=False)
+    handle = await start_bot(mock_signal_server, enable_formatting=False)
 
     # Plant a mock that would explode if GPT were called
     mock_client = MagicMock()
@@ -62,4 +62,4 @@ async def test_formatting_disabled_skips_gpt(
         assert "test" in msgs[0]["message"].lower()
         mock_client.chat.completions.create.assert_not_called()
     finally:
-        await stop_bot(shutdown, task, patches)
+        await stop_bot(handle)
