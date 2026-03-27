@@ -16,9 +16,10 @@ source .venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install ffmpeg (required for audio conversion)
+# Install ffmpeg (only needed if using TRANSCRIPTION_BACKEND=openai)
 # macOS: brew install ffmpeg
 # Ubuntu: sudo apt-get install ffmpeg
+# Not needed for the default local backend
 ```
 
 ## Running tests
@@ -35,6 +36,8 @@ pytest tests/e2e/
 ```
 
 The test suite includes unit tests (`tests/test_*.py`) for each module and an e2e suite (`tests/e2e/`) that uses a mock signal-cli-rest-api server. See `docs/specs/E2E_SPEC.md` for the e2e architecture.
+
+No API keys are needed to run tests. E2e tests using the `bot` fixture run real local transcription — the first run downloads the Whisper model (~500 MB), which is cached afterward.
 
 ## Submitting changes
 

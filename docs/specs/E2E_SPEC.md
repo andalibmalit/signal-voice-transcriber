@@ -5,7 +5,7 @@
 >
 > **Key divergences from this spec:**
 > - Audio fixtures use `.m4a` (AAC/MP4), not `.ogg` (Opus) — changed to match real Signal voice message format.
-> - Most tests call real OpenAI Whisper/GPT instead of mocking — `bot` fixture uses `OPENAI_API_KEY`; only error/mock-specific tests use `mock_bot` with a dummy key.
+> - `bot` fixture uses real local faster-whisper (no API key needed); `mock_bot` uses a fully mocked `TranscriptionBackend` protocol. OpenAI is not called in any e2e test by default.
 > - Assertions use fuzzy keyword matching, not exact strings — real Whisper output is nondeterministic.
 > - `test_voice_note_flag_detected` was removed — redundant with `test_single_voice_message_transcribed`.
 > - `test_all_mode_transcribes_everyone` was not implemented — happy-path tests already default to `transcribe_mode="all"`.

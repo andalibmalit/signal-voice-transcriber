@@ -8,7 +8,7 @@ A self-hosted bot that automatically transcribes voice messages in Signal. Uses 
 2. Detects incoming voice messages (voiceNote flag or audio content type heuristic)
 3. Downloads the audio attachment via the signal-cli REST API
 4. Transcribes the audio locally with faster-whisper (or OpenAI Whisper API if configured)
-5. Formats the transcript with pause-based paragraph breaks (or GPT if API key is set)
+5. Formats the transcript with pause-based paragraph breaks (or GPT if enabled)
 6. Replies to the original voice message with the transcription
 
 ## Setup
