@@ -6,5 +6,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN groupadd -r transcriber && useradd -r -g transcriber transcriber \
     && mkdir -p /models && chown transcriber:transcriber /models
 COPY . .
+ENV HF_HOME=/models
 USER transcriber
 CMD ["python", "-m", "signal_transcriber"]

@@ -184,6 +184,13 @@ async def test_create_backend_openai_no_key():
         create_backend(config)
 
 
+async def test_create_backend_local_rejects_openai_model():
+    from signal_transcriber.backends import create_backend
+    config = _make_config(transcription_backend="local", whisper_model="whisper-1")
+    with pytest.raises(ValueError, match="not a valid local model"):
+        create_backend(config)
+
+
 async def test_create_backend_openai_rejects_local_model():
     from signal_transcriber.backends import create_backend
     config = _make_config(transcription_backend="openai", whisper_model="small")

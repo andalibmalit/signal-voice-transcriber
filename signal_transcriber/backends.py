@@ -150,4 +150,10 @@ def create_backend(config: Config) -> TranscriptionBackend:
                 f"Did you mean TRANSCRIPTION_BACKEND=local?"
             )
         return OpenAIWhisperBackend(config)
+    if config.whisper_model not in _LOCAL_MODEL_NAMES:
+        raise ValueError(
+            f"WHISPER_MODEL='{config.whisper_model}' is not a valid local model. "
+            f"Valid models: {', '.join(sorted(_LOCAL_MODEL_NAMES))}. "
+            f"Did you mean TRANSCRIPTION_BACKEND=openai?"
+        )
     return LocalWhisperBackend(config)
