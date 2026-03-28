@@ -23,7 +23,7 @@ class Config:
         default_factory=lambda: os.getenv("OPENAI_API_KEY", "")
     )
     whisper_model: str = field(
-        default_factory=lambda: os.getenv("WHISPER_MODEL", "small")
+        default_factory=lambda: os.getenv("WHISPER_MODEL", "large-v3")
     )
     gpt_model: str = field(
         default_factory=lambda: os.getenv("GPT_MODEL", "gpt-4o-mini")
