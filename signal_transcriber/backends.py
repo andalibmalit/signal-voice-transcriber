@@ -13,6 +13,8 @@ from .utils import make_temp_path
 
 logger = logging.getLogger(__name__)
 
+_OPENAI_DEFAULT_MODEL = "whisper-1"
+
 _LOCAL_MODEL_NAMES = {
     "tiny", "tiny.en", "base", "base.en", "small", "small.en",
     "medium", "medium.en", "large", "large-v1", "large-v2", "large-v3",
@@ -116,8 +118,9 @@ def _convert_to_m4a(audio_path: Path) -> Path:
 class OpenAIWhisperBackend:
     """Cloud transcription using the OpenAI Whisper API."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, *, model: str = _OPENAI_DEFAULT_MODEL) -> None:
         self._config = config
+        self._model = model
         self._client = None
 
     async def transcribe(self, audio_path: Path) -> TranscriptionResult:
@@ -140,7 +143,7 @@ class OpenAIWhisperBackend:
                     )
                 with open(whisper_input, "rb") as f:
                     text = self._client.audio.transcriptions.create(
-                        model=self._config.whisper_model,
+                        model=self._model,
                         file=f,
                         response_format="text",
                     )
@@ -163,11 +166,14 @@ def create_backend(config: Config) -> TranscriptionBackend:
         if config.whisper_model in _LOCAL_MODEL_NAMES:
             logger.warning(
                 "WHISPER_MODEL='%s' is a local model name — "
-                "defaulting to 'whisper-1' for OpenAI backend",
+                "using '%s' for OpenAI backend",
                 config.whisper_model,
+                _OPENAI_DEFAULT_MODEL,
             )
-            config.whisper_model = "whisper-1"
-        return OpenAIWhisperBackend(config)
+            model = _OPENAI_DEFAULT_MODEL
+        else:
+            model = config.whisper_model
+        return OpenAIWhisperBackend(config, model=model)
     if config.whisper_model not in _LOCAL_MODEL_NAMES:
         raise ValueError(
             f"WHISPER_MODEL='{config.whisper_model}' is not a valid local model. "

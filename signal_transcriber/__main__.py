@@ -22,9 +22,6 @@ def main() -> None:
     if not config.signal_number:
         raise SystemExit("SIGNAL_NUMBER environment variable is required")
 
-    if config.transcription_backend == "openai" and not config.openai_api_key:
-        raise SystemExit("TRANSCRIPTION_BACKEND=openai requires OPENAI_API_KEY")
-
     if config.enable_formatting and config.openai_api_key:
         logger.info(
             "GPT formatting enabled — transcripts will be sent to OpenAI"
