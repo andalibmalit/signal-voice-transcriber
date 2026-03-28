@@ -101,6 +101,7 @@ async def start_bot(
         openai_api_key="",
         whisper_model="small",
         whisper_model_dir=None,  # Use faster-whisper default (~/.cache/huggingface)
+        transcription_backend="local",
         transcribe_mode="all",
         enable_formatting=False,
         log_level="DEBUG",

@@ -18,24 +18,9 @@ services:
     depends_on:
       signal-api:
         condition: service_healthy
+    env_file: .env
     environment:
       - SIGNAL_API_URL=http://signal-api:8080
-      - SIGNAL_NUMBER=${SIGNAL_NUMBER}
-      - TRANSCRIPTION_BACKEND=${TRANSCRIPTION_BACKEND:-local}
-      - WHISPER_MODEL=${WHISPER_MODEL:-small}
-      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
-      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
-      - WHISPER_CPU_THREADS=${WHISPER_CPU_THREADS:-4}
-      - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-auto}
-      - TRANSCRIBE_MODE=${TRANSCRIBE_MODE:-own_only}
-      - MAX_AUDIO_SIZE_MB=${MAX_AUDIO_SIZE_MB:-25}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      # Optional: uncomment to enable cloud features
-      # - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # - ENABLE_GPT_FORMATTING=true
-      # - GPT_MODEL=${GPT_MODEL:-gpt-4o-mini}
-      # - OPENAI_TIMEOUT_SECONDS=${OPENAI_TIMEOUT_SECONDS:-120}
-      # - ALLOWED_NUMBERS=${ALLOWED_NUMBERS}
     volumes:
       - whisper-models:/models
 

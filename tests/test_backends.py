@@ -190,14 +190,11 @@ async def test_create_backend_local_rejects_openai_model():
         create_backend(config)
 
 
-async def test_create_backend_openai_rejects_local_model():
-    from signal_transcriber.backends import create_backend
+async def test_create_backend_openai_defaults_local_model_to_whisper1():
+    from signal_transcriber.backends import create_backend, OpenAIWhisperBackend
     config = _make_config(transcription_backend="openai", whisper_model="small")
-    with pytest.raises(ValueError, match="local model name"):
-        create_backend(config)
-
-    # Verify the error message suggests the fix
-    with pytest.raises(ValueError, match="whisper-1"):
-        create_backend(config)
+    backend = create_backend(config)
+    assert isinstance(backend, OpenAIWhisperBackend)
+    assert config.whisper_model == "whisper-1"
 
 

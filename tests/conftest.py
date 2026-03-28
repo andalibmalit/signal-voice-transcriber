@@ -27,6 +27,7 @@ def config() -> Config:
         enable_formatting=False,
         log_level="DEBUG",
         max_audio_size_mb=25,
+        transcription_backend="local",
         transcribe_mode="own_only",
         allowed_numbers=["+11111111111", "+12222222222"],
         openai_timeout=120,

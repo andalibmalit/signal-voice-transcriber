@@ -161,11 +161,12 @@ def create_backend(config: Config) -> TranscriptionBackend:
         if not config.openai_api_key:
             raise ValueError("TRANSCRIPTION_BACKEND=openai requires OPENAI_API_KEY")
         if config.whisper_model in _LOCAL_MODEL_NAMES:
-            raise ValueError(
-                f"WHISPER_MODEL='{config.whisper_model}' is a local model name. "
-                f"When TRANSCRIPTION_BACKEND=openai, use 'whisper-1' or another OpenAI model. "
-                f"Did you mean TRANSCRIPTION_BACKEND=local?"
+            logger.warning(
+                "WHISPER_MODEL='%s' is a local model name — "
+                "defaulting to 'whisper-1' for OpenAI backend",
+                config.whisper_model,
             )
+            config.whisper_model = "whisper-1"
         return OpenAIWhisperBackend(config)
     if config.whisper_model not in _LOCAL_MODEL_NAMES:
         raise ValueError(
